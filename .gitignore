@@ -39,11 +39,6 @@ rag_input.json
 *.pem
 serviceAccountKey.json
 
-# Data (large files)
-data/vector_db_mini/
-data/books/*.pdf
-data/rag_chunks/*.json
-
 # Logs
 *.log
 logs/
