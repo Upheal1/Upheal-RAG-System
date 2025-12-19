@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The IEEE Journey: From Membership to Mastery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+/* 1. THE SETUP */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #f3f4f6;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+  margin: 0;
+  min-height: 100vh;
+  padding: 20px 0;
+  place-items: center;
+  font-family: 'Open Sans', sans-serif;
+}
+
+.slide-container {
+  align-items: center;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  height: 720px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 60px;
+  position: relative;
+  width: 1280px;
+}
+
+/* 1.1 BACKGROUND STYLING - IEEE Professional Theme */
+.slide-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(90deg, #00629B 0%, #00B5E2 100%); /* IEEE Blue Gradient */
+  z-index: 2;
+}
+
+.slide-container::after {
+  content: '';
+  position: absolute;
+  bottom: -150px;
+  right: -150px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(0, 98, 155, 0.05) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.slide-container>* {
+  position: relative;
+  z-index: 1;
+}
+
+/* 2. CONSISTENT TYPOGRAPHY */
+.slide-container h1,
+.slide-container h2,
+.slide-container h3 {
+  color: #00629B; /* IEEE Primary Blue */
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  margin: 0;
+}
+
+.slide-container h1 {
+  font-size: 64px;
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+
+.slide-container .slide-title {
+  font-size: 42px;
+  font-weight: 700;
+  margin-bottom: 40px;
+  text-align: left;
+  width: 100%;
+  border-bottom: 3px solid #00B5E2; /* IEEE Accent Blue */
+  padding-bottom: 15px;
+}
+
+.slide-container p,
+.slide-container li,
+.slide-container .subtitle {
+  color: #333333;
+  font-size: 20px;
+  line-height: 1.6;
+}
+
+.slide-container .subtitle {
+  color: #666;
+  font-size: 24px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+/* 3. LAYOUT DEFINITIONS */
+
+/* Title Slide */
+.title-slide-layout {
+  text-align: center;
+  color: #fff;
+  z-index: 2;
+}
+.title-slide-layout h1 { color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+.title-slide-layout .subtitle { color: #e0e0e0; margin-top: 20px; font-weight: 600; text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+.title-slide-layout .footer-text { margin-top: 60px; font-size: 18px; color: #ccc; text-transform: uppercase; letter-spacing: 2px; }
+
+/* Content Area */
+.content-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  flex-grow: 1;
+}
+
+/* Two Column */
+.two-column {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  width: 100%;
+  align-items: center;
+}
+
+.two-column.tiled {
+  align-items: stretch;
+}
+.two-column.tiled > div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.two-column.tiled h3 { margin-bottom: 15px; color: #00629B; font-size: 28px; }
+
+/* Rounded Image */
+.rounded-image-layout { display: flex; align-items: center; gap: 60px; }
+.rounded-image-layout .image-wrapper { width: 400px; height: 400px; border-radius: 50%; overflow: hidden; border: 8px solid #f0f9ff; box-shadow: 0 10px 30px rgba(0,98,155,0.15); flex-shrink: 0; }
+.rounded-image-layout .image-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+.rounded-image-layout .text-content { flex: 1; }
+
+/* Bleed Image Right */
+.slide-container.bleed-image-layout {
+  align-items: start;
+  display: grid;
+  gap: 50px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+}
+.slide-container.bleed-image-layout > .content-container { padding: 60px 0 60px 60px; display: flex; flex-direction: column; justify-content: center; height: 100%; }
+.slide-container.bleed-image-layout > .image-container { height: 100%; width: 100%; overflow: hidden; }
+.slide-container.bleed-image-layout img.bleed-image-side { width: 100%; height: 100%; max-height: 720px; object-fit: cover; border-radius: 0; }
+.bleed-text-side h2 { font-size: 48px; margin-bottom: 30px; }
+
+/* Tiled Text with Icons */
+.tiled-content { display: flex; gap: 30px; width: 100%; justify-content: space-between; }
+.tile { flex: 1; background: #fff; border: 1px solid #eee; box-shadow: 0 5px 15px rgba(0,0,0,0.05); padding: 30px; border-radius: 12px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.tile .icon { font-size: 48px; color: #00B5E2; margin-bottom: 20px; background: rgba(0, 181, 226, 0.1); width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.tile h3 { font-size: 22px; margin-bottom: 15px; color: #333; }
+.tile p { font-size: 16px; color: #666; }
+
+/* Timeline */
+.timeline-layout { display: flex; justify-content: space-between; align-items: flex-start; position: relative; width: 90%; margin: 40px auto; }
+.timeline-layout::before { content: ''; position: absolute; top: 20px; left: 0; width: 100%; height: 4px; background: #e0e0e0; z-index: 0; }
+.timeline-item { position: relative; text-align: center; width: 22%; z-index: 1; padding-top: 50px; }
+.timeline-item::before { content: ''; position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; background: #fff; border: 4px solid #00629B; border-radius: 50%; }
+.timeline-item h3 { font-size: 20px; color: #00629B; margin-bottom: 10px; }
+.timeline-item p { font-size: 16px; color: #555; }
+
+/* Tiled Images */
+.tiled-images-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; width: 100%; height: 100%; }
+.image-tile-wrapper { width: 100%; height: 250px; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); position: relative; }
+.image-tile-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+.image-tile-label { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); color: #fff; padding: 10px; text-align: center; font-weight: 600; }
+
+/* Quote */
+.quote-layout { text-align: center; width: 80%; margin: 0 auto; }
+.quote-layout blockquote { font-family: 'Montserrat', sans-serif; font-size: 36px; font-style: italic; color: #00629B; line-height: 1.4; margin-bottom: 30px; position: relative; }
+.quote-layout blockquote::before { content: '\201C'; font-size: 80px; color: #e0e0e0; position: absolute; top: -40px; left: -40px; }
+.quote-layout cite { font-size: 24px; color: #666; font-weight: 600; }
+
+/* Bullet List - Styled */
+.bullet-list ul { list-style: none; padding: 0; margin: 0; }
+.bullet-list li { margin-bottom: 25px; padding-left: 50px; position: relative; font-size: 24px; color: #333; }
+.bullet-list li::before { content: '\f058'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; left: 0; top: 2px; color: #00B5E2; font-size: 28px; }
+
+/* Image Right Text Left */
+.image-right-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: center; }
+.image-right-layout .text-content { padding-right: 20px; }
+.image-right-layout .image-wrapper { height: 450px; width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+.image-right-layout .image-wrapper img { width: 100%; height: 100%; object-fit: contain; background: #fff; } /* Contain for diverse aspect ratios */
+
+/* Section Title */
+.section-title-layout { text-align: center; border: 4px solid #00629B; padding: 60px; width: 80%; background: #fff; position: relative; }
+.section-title-layout::before { content: ''; position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; border: 2px dashed #00B5E2; pointer-events: none; }
+.section-title-layout h2 { font-size: 60px; color: #00629B; margin-bottom: 20px; }
+.section-title-layout p { font-size: 28px; color: #555; }
+
+/* Q&A */
+.qa-layout { text-align: center; }
+.qa-layout h2 { font-size: 80px; color: #00629B; margin-bottom: 30px; }
+.qa-layout p { font-size: 28px; color: #555; margin-bottom: 50px; }
+.apply-btn { display: inline-block; background: #00629B; color: #fff; padding: 20px 50px; border-radius: 50px; font-size: 24px; font-weight: 700; text-decoration: none; box-shadow: 0 10px 20px rgba(0,98,155,0.3); }
+
+/* Tribute Box */
+.tribute-box {
+    margin-top: 30px;
+    background: #f0f9ff;
+    border-left: 5px solid #00629B;
+    padding: 20px;
+    border-radius: 0 8px 8px 0;
+}
+.tribute-box p {
+    font-size: 16px;
+    color: #555;
+    font-style: italic;
+    margin: 0;
+}
+
+    </style>
+</head>
+<body>
+
+<!-- Slide 1: Title_Slide -->
+<div class="slide-container full-bg-image" id="slide1" style="background-image: linear-gradient(rgba(0, 98, 155, 0.85), rgba(0, 40, 85, 0.9)), url('http://googleusercontent.com/image_collection/image_retrieval/4493557020227419813'); background-size: cover; background-position: center;">
+    <div class="title-slide-layout">
+        <h1>The IEEE Journey:<br>From Membership to Mastery</h1>
+        <p class="subtitle">General Meeting – IEEE Pharos University SB</p>
+        <p class="footer-text">Advancing Technology for Humanity</p>
+    </div>
+</div>
+
+<!-- Slide 2: The Network (Icebreaker) -->
+<div class="slide-container" id="slide2">
+    <div class="rounded-image-layout">
+        <div class="image-wrapper">
+            <img src="http://googleusercontent.com/image_collection/image_retrieval/12788138872643467314" alt="Diverse university students networking">
+        </div>
+        <div class="text-content">
+            <h2 class="slide-title" style="border: none; margin-bottom: 20px;">The Network Activity</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 20px; font-size: 24px;"><strong style="color: #00629B;">Action:</strong> Stand Up!</li>
+                <li style="margin-bottom: 20px; font-size: 24px;"><strong style="color: #00629B;">Time:</strong> 2 Minutes</li>
+                <li style="margin-bottom: 20px; font-size: 24px;"><strong style="color: #00629B;">Task:</strong> Meet 3 new people</li>
+                <li style="margin-bottom: 30px; font-size: 24px; background: #f0f9ff; padding: 20px; border-radius: 10px; border-left: 5px solid #00B5E2;">
+                    <em>"What is one technology you wish existed today?"</em>
+                </li>
+            </ul>
+            <p style="font-size: 18px; color: #666;">This chaotic connection is the heart of IEEE—networking with a purpose.</p>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 3: What is an Organization? -->
+<div class="slide-container bleed-image-layout" id="slide3">
+    <div class="content-container">
+        <div class="bleed-text-side">
+            <h2>Defining Our Purpose</h2>
+            <blockquote style="font-size: 24px; font-style: italic; color: #333; margin-bottom: 20px; border-left: 4px solid #00629B; padding-left: 20px;">
+                "A structured group of individuals working together to achieve a specific goal."
+            </blockquote>
+            <p style="margin-bottom: 10px;"><strong>IEEE Student Branch</strong> is the professional home for the engineering community worldwide.</p>
+            
+            <div class="tribute-box">
+                <p><strong>A Legacy of Leadership:</strong><br>We honor the teachings of <strong>Eng. Mohamed Hatem</strong>, whose "Mastery of Quest" framework guided us to understand that active leadership starts with clear structure and purpose.</p>
+            </div>
+        </div>
+    </div>
+    <div class="image-container">
+        <img class="bleed-image-side" src="http://googleusercontent.com/image_collection/image_retrieval/16207158827149704405" alt="Engineering team collaborating on project">
+    </div>
+</div>
+
+<!-- Slide 4: Philosophy & Awareness -->
+<div class="slide-container" id="slide4">
+    <h2 class="slide-title">Why Here? Why IEEE?</h2>
+    <div class="content-area">
+        <div class="image-right-layout">
+            <div class="text-content">
+                <h3 style="margin-bottom: 20px;">More Than A Local Club</h3>
+                <p style="margin-bottom: 20px;">Unlike other local student activities or isolated clubs, being here means you are part of a <strong>Global Standard</strong>.</p>
+                <ul class="bullet-list">
+                    <li><strong>Global Reach:</strong> Connected to Region 8 (Europe, Middle East, Africa).</li>
+                    <li><strong>Professional Home:</strong> You aren't just a student; you are a member of the world's largest technical professional society.</li>
+                    <li><strong>Standardization:</strong> We don't just "do events"; we follow global best practices for leadership and impact.</li>
+                </ul>
+            </div>
+            <div class="image-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/17407182629336420999" alt="Large group of university students cheering" style="object-fit: cover;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 5: Membership Benefits -->
+<div class="slide-container" id="slide5">
+    <h2 class="slide-title">Membership Benefits</h2>
+    <div class="content-area">
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-book-open"></i></div>
+                <h3>Knowledge</h3>
+                <p>Access to IEEE Member Digital Library & Spectrum Magazine to keep abreast of tech.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-id-card"></i></div>
+                <h3>Identity</h3>
+                <p>Professional branding with GoogleApps@IEEE & your own unique IEEE e-mail alias.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-tags"></i></div>
+                <h3>Savings</h3>
+                <p>Exclusive discounts on IEEE Conferences, Competitions, and Society memberships.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-network-wired"></i></div>
+                <h3>Growth</h3>
+                <p>Build a professional network and accelerate your career with volunteering.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 6: Membership Cycle -->
+<div class="slide-container" id="slide6">
+    <h2 class="slide-title">The Membership Cycle</h2>
+    <div class="content-area">
+        <div class="timeline-layout">
+            <div class="timeline-item">
+                <h3>Jan 1</h3>
+                <p><strong>Membership Year Begins</strong><br>Full access to all benefits.</p>
+            </div>
+            <div class="timeline-item">
+                <h3>Mar 1</h3>
+                <p><strong>Half-Year Dues</strong><br>New members get 50% off joining fees.</p>
+            </div>
+            <div class="timeline-item">
+                <h3>Aug 15</h3>
+                <p><strong>Renewal Cycle Opens</strong><br>Renew for the upcoming year.</p>
+            </div>
+            <div class="timeline-item">
+                <h3>Dec 31</h3>
+                <p><strong>Cycle Ends</strong><br>Ensure renewal to avoid service break.</p>
+            </div>
+        </div>
+        <p style="text-align: center; margin-top: 40px; font-weight: 600; color: #00629B;">Don't miss the cycle! Join now to unlock your potential.</p>
+    </div>
+</div>
+
+<!-- Slide 7: Activities -->
+<div class="slide-container" id="slide7">
+    <h2 class="slide-title">Diversified Activities</h2>
+    <div class="content-area">
+        <div class="two-column tiled">
+            <div>
+                <h3><i class="fa-solid fa-chalkboard-user" style="margin-right: 10px;"></i>Minor Scale</h3>
+                <p>Focus on continuous learning and industry exposure through focused events.</p>
+                <ul class="bullet-list" style="margin-top: 20px;">
+                    <li style="font-size: 18px;">Technical Workshops</li>
+                    <li style="font-size: 18px;">Expert Seminars</li>
+                    <li style="font-size: 18px;">Industry Field Visits</li>
+                </ul>
+            </div>
+            <div>
+                <h3><i class="fa-solid fa-trophy" style="margin-right: 10px;"></i>Major Scale</h3>
+                <p>Large-scale events that challenge your skills and expand your network.</p>
+                <ul class="bullet-list" style="margin-top: 20px;">
+                    <li style="font-size: 18px;">Hackathons & Competitions</li>
+                    <li style="font-size: 18px;">Regional Conferences</li>
+                    <li style="font-size: 18px;">Global IEEE Day Celebrations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 8: Industry Outreach -->
+<div class="slide-container" id="slide8">
+    <h2 class="slide-title">Industry Outreach</h2>
+    <p class="subtitle" style="margin-bottom: 30px;">We bridge the gap between your studies at Pharos and industry giants.</p>
+    <div class="content-area">
+        <div class="tiled-images-layout">
+            <div class="image-tile-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/3535579459995107200" alt="Microsoft Office">
+                <div class="image-tile-label">Microsoft</div>
+            </div>
+            <div class="image-tile-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/15689981358607536460" alt="Siemens Technology">
+                <div class="image-tile-label">Siemens</div>
+            </div>
+            <div class="image-tile-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/16972761983269837529" alt="Valeo Automotive">
+                <div class="image-tile-label">Valeo</div>
+            </div>
+            <div class="image-tile-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/2387906079309796970" alt="Dell Technologies">
+                <div class="image-tile-label">Dell</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 9: SIGHT Announcement -->
+<div class="slide-container" id="slide9" style="background: #f0fdf4;">
+    <h2 class="slide-title" style="border-bottom-color: #22c55e;">New Chapter Unlocked!</h2>
+    <div class="content-area">
+        <div style="text-align: center;">
+            <i class="fa-solid fa-hands-holding-circle" style="font-size: 100px; color: #22c55e; margin-bottom: 30px;"></i>
+            <h1 style="color: #15803d; margin-bottom: 20px;">We Are Finally Here: IEEE SIGHT</h1>
+            <p class="subtitle" style="max-width: 800px; margin: 0 auto 40px;">Special Interest Group on Humanitarian Technology</p>
+            
+            <div class="two-column" style="text-align: left; gap: 40px;">
+                <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <h3 style="color: #15803d;">The Mission</h3>
+                    <p>To leverage technology for sustainable solutions that support local underserved communities.</p>
+                </div>
+                <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <h3 style="color: #15803d;">The Goal</h3>
+                    <p>To win the <strong>Outstanding Student Branch SIGHT Group of the Year</strong> award in our very first season.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 10: Leadership Structure -->
+<div class="slide-container" id="slide10">
+    <div class="section-title-layout">
+        <h2>Learn by Doing!</h2>
+        <p>"We don't have a solution manual, but we have a structure."</p>
+        <hr style="width: 100px; border: 2px solid #00B5E2; margin: 30px auto;">
+        <p style="font-size: 20px; font-weight: 600;">Announcing the 2026 Season Elections</p>
+    </div>
+</div>
+
+<!-- Slide 11: Open Positions: Branch ExCom -->
+<div class="slide-container" id="slide11">
+    <h2 class="slide-title">Open Positions: Branch ExCom</h2>
+    <div class="content-area">
+        <div class="two-column tiled">
+            <div>
+                <h3><i class="fa-solid fa-chess-king" style="margin-right: 10px;"></i>Chair</h3>
+                <p><strong>The Strategist (PMO)</strong></p>
+                <p style="margin-top: 15px;">The face of the branch. You manage the overall strategy, lead Executive Committee meetings, and ensure all committees are moving forward.</p>
+            </div>
+            <div>
+                <h3><i class="fa-solid fa-sack-dollar" style="margin-right: 10px;"></i>Treasurer</h3>
+                <p><strong>The Operator</strong></p>
+                <p style="margin-top: 15px;">Handles the funding and operations. You aren't just holding money; you ensure fiscal performance and manage the dues cycle.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 12: Open Positions: RAS Chapter -->
+<div class="slide-container" id="slide12">
+    <h2 class="slide-title">Open Positions: RAS Chapter</h2>
+    <div class="content-area">
+        <div class="tiled-content">
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-user-gear"></i></div>
+                <h3>Vice Chair</h3>
+                <p>The right hand to the Chair. Steps in to lead and manages operations and 'Project Squad' meetings.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-wallet"></i></div>
+                <h3>Treasurer</h3>
+                <p>Manages the specific budget for robotics projects, competitions, and society workshops.</p>
+            </div>
+            <div class="tile">
+                <div class="icon"><i class="fa-solid fa-pen-nib"></i></div>
+                <h3>Secretary</h3>
+                <p>The backbone of documentation. Ensures the "5 Ws" (Who, What, Where, When, Why) are communicated.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 13: MGA Awards Strategy -->
+<div class="slide-container" id="slide13">
+    <h2 class="slide-title">The Target: MGA Awards</h2>
+    <div class="content-area">
+        <p class="subtitle" style="margin-bottom: 20px;"><strong style="color: #d32f2f;">Deadline: 31st March</strong> — We are aiming for Global Recognition.</p>
+        
+        <div class="two-column tiled" style="grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <div>
+                <h3 style="font-size: 22px;">Exemplary SB Award</h3>
+                <p style="font-size: 16px;"><strong>The Gold Standard.</strong> Recognizes branches that operate consistent with IEEE goals. Requires 2 endorsements (Counselor & Section Chair).</p>
+            </div>
+            <div>
+                <h3 style="font-size: 22px;">Darrel Chong Award</h3>
+                <p style="font-size: 16px;"><strong>Value-Driven Activities.</strong> For sustainable activities that improve student quality of life. (Platinum, Gold, Silver levels).</p>
+            </div>
+            <div>
+                <h3 style="font-size: 22px;">Larry K. Wilson</h3>
+                <p style="font-size: 16px;"><strong>Outstanding Leadership.</strong> Presented to the student member responsible for extraordinary accomplishments in the region.</p>
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; background: #e0f2f1; padding: 20px; border-radius: 8px; text-align: center;">
+            <strong style="color: #00695c; font-size: 20px;">Plus: Regional Website Award & SIGHT Group of the Year (Deadline: June 15)</strong>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 14: The Final Say -->
+<div class="slide-container" id="slide14">
+    <div class="quote-layout">
+        <blockquote>
+            Pick Your Battles.<br>Prioritize Your Priorities.
+        </blockquote>
+        <cite>— Leadership Philosophy</cite>
+        <div style="margin-top: 50px; font-size: 32px; font-weight: 700; color: #00629B; text-transform: uppercase; letter-spacing: 2px;">
+            Communicate .. Expand .. Lead!
+        </div>
+    </div>
+</div>
+
+<!-- Slide 15: Q&A -->
+<div class="slide-container" id="slide15">
+    <div class="qa-layout">
+        <h2>Questions?</h2>
+        <p>Ready to start your journey? Apply today!</p>
+        <a href="#" class="apply-btn">Scan to Apply</a>
+    </div>
+</div>
+
+</body>
+</html>
+```

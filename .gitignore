@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Test outputs
+my_assessment_result.json
+test_response.json
+clinical_session_log.csv
+rag_input.json
+
+# API keys and secrets
+.env
+*.key
+*.pem
+serviceAccountKey.json
+
+# Data (large files)
+data/vector_db_mini/
+data/books/*.pdf
+data/rag_chunks/*.json
+
+# Logs
+*.log
+logs/

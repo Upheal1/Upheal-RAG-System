@@ -1,0 +1,69 @@
+{
+    "id": "PCPTSD5",
+    "title": "Primary Care PTSD Screen for DSM-5",
+    "version": "2022",
+    "type": "clinical_form",
+    "description": "A 5-item screen designed to identify individuals with probable PTSD. If no trauma exposure, score = 0.",
+    "initial_trauma_question": {
+      "id": "trauma_exposure",
+      "text": "Have you ever experienced an event that was frightening, horrible, or traumatic (e.g., serious accident, assault, disaster, war, witnessing death or injury)?",
+      "options": [
+        { "label": "No", "value": 0 },
+        { "label": "Yes", "value": 1 }
+      ],
+      "if_no": "Stop. Screen total = 0."
+    },
+    "questions": [
+      {
+        "id": 1,
+        "text": "In the past month, have you had nightmares about the event(s) or thought about the event(s) when you did not want to?",
+        "options": [
+          { "label": "No", "value": 0 },
+          { "label": "Yes", "value": 1 }
+        ]
+      },
+      {
+        "id": 2,
+        "text": "In the past month, have you tried hard not to think about the event(s) or went out of your way to avoid situations that reminded you of the event(s)?",
+        "options": [
+          { "label": "No", "value": 0 },
+          { "label": "Yes", "value": 1 }
+        ]
+      },
+      {
+        "id": 3,
+        "text": "In the past month, have you been constantly on guard, watchful, or easily startled?",
+        "options": [
+          { "label": "No", "value": 0 },
+          { "label": "Yes", "value": 1 }
+        ]
+      },
+      {
+        "id": 4,
+        "text": "In the past month, have you felt numb or detached from people, activities, or your surroundings?",
+        "options": [
+          { "label": "No", "value": 0 },
+          { "label": "Yes", "value": 1 }
+        ]
+      },
+      {
+        "id": 5,
+        "text": "In the past month, have you felt guilty or unable to stop blaming yourself or others for the event(s) or any problems they may have caused?",
+        "options": [
+          { "label": "No", "value": 0 },
+          { "label": "Yes", "value": 1 }
+        ]
+      }
+    ],
+    "scoring": {
+      "range": [0, 5],
+      "cut_points": {
+        "recommended": 4,
+        "note": "Cut-point of 4 balances sensitivity and specificity. Clinicians may adjust depending on gender and available resources."
+      },
+      "path_mapping": {
+        ">=4": "PATH_C"
+      }
+    }
+  }
+  
