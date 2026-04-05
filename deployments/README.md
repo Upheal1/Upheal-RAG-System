@@ -1,7 +1,3 @@
-## Deployments (Scaffolding)
+# Deployments
 
-This folder contains Docker scaffolding for the microservices layout.
-
-At the moment, the gateway runs in a single container (in-process orchestration).
-Domain boundaries are preserved in code under `services/`.
-
+See **[docs/deployment.md](../docs/deployment.md)** for Docker overview and compose usage.

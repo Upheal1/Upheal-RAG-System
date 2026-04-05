@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+import os
+from typing import Any, Dict, List, Optional
 
 from services.shared.logging import get_logger
 from services.shared.pathing import repo_root
@@ -10,24 +11,84 @@ from services.shared.schemas import ClinicalTask, UserContext
 logger = get_logger(__name__)
 
 
+def _difficulty_from_metadata(meta: Dict[str, Any]) -> int:
+    raw = meta.get("difficulty")
+    if raw is not None:
+        try:
+            d = int(raw)
+            return max(1, min(5, d))
+        except (TypeError, ValueError):
+            pass
+    header = meta.get("header")
+    header_str = str(header).lower() if header is not None else ""
+    if "high" in header_str:
+        return 4
+    if "low" in header_str:
+        return 2
+    if "moderate" in header_str:
+        return 3
+    return 3
+
+
+def _xp_from_metadata(meta: Dict[str, Any]) -> int:
+    raw = meta.get("xp_reward")
+    if raw is None:
+        return 10
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 10
+
+
+def _symptom_tags_from_metadata(
+    meta: Dict[str, Any], fallback: List[str]
+) -> List[str]:
+    raw = meta.get("clinical_tags")
+    if isinstance(raw, str) and raw.strip():
+        return [t.strip() for t in raw.split(",") if t.strip()]
+    return list(fallback)
+
+
+def _build_where_filter(user_context: UserContext) -> Optional[Dict[str, Any]]:
+    """
+    Metadata from enriched index uses `tag_primary` (anxiety | depression | general).
+    Omit filter if we cannot derive tags or only suicidal/general.
+    """
+    tags: List[str] = []
+    for k, v in user_context.form_scores.items():
+        if k in ("general", "suicidal"):
+            continue
+        if int(v) > 0 and k in ("anxiety", "depression"):
+            tags.append(k)
+    if not tags:
+        return None
+    or_clauses = [{"tag_primary": t} for t in tags]
+    or_clauses.append({"tag_primary": "general"})
+    if len(or_clauses) == 1:
+        return or_clauses[0]
+    return {"$or": or_clauses}
+
+
 class ChromaKnowledgeBase:
     """
-    Minimal Chroma adapter.
-
-    The current repo already has a working Chroma client in `src/api/rag_client.py`.
-    This class is designed to evolve toward the plan's "hybrid search + filtering"
-    interface while staying import-safe for scaffolding.
+    Chroma adapter: semantic search plus optional metadata filter when using
+    an enriched index (see `services/ingestion/build_index.py`).
     """
 
     def __init__(
         self,
         *,
         vector_db_path: Optional[str] = None,
-        collection_name: str = "clinical_rag_mini",
+        collection_name: Optional[str] = None,
         model_name: str = "all-mpnet-base-v2",
     ):
-        self.vector_db_path = vector_db_path or str(repo_root() / "data" / "vector_db_mini")
-        self.collection_name = collection_name
+        root = repo_root()
+        self.vector_db_path = vector_db_path or os.environ.get(
+            "UPHEAL_CHROMA_PATH", str(root / "data" / "vector_db_mini")
+        )
+        self.collection_name = collection_name or os.environ.get(
+            "UPHEAL_CHROMA_COLLECTION", "clinical_rag_mini"
+        )
         self.model_name = model_name
 
         self._model = None
@@ -75,70 +136,75 @@ class ChromaKnowledgeBase:
         query_text: Optional[str] = None,
         top_k: int = 5,
     ) -> List[ClinicalTask]:
-        """
-        Retrieve candidate tasks from Chroma and map them into `ClinicalTask`.
-
-        - Similarity is normalized to [0..1] and stored in `task.metadata["similarity"]`.
-        - `task.symptom_tags` is derived from `user_context.form_scores` keys.
-        """
         self._ensure_loaded()
         if self._collection is None or self._model is None:
             return []
 
-        clinical_tags: List[str] = [k for k in user_context.form_scores.keys() if isinstance(k, str)]
+        clinical_tags: List[str] = [
+            k for k in user_context.form_scores.keys() if isinstance(k, str)
+        ]
         if not clinical_tags:
             clinical_tags = ["general"]
 
         query_text = query_text or " ".join(clinical_tags)
 
         query_embedding = self._model.encode([query_text])
-        results = self._collection.query(
-            query_embeddings=query_embedding.tolist(),
-            n_results=top_k,
-            include=["documents", "metadatas", "distances"],
-        )
+        where = _build_where_filter(user_context)
+        n_fetch = min(max(top_k * 3, top_k), 50)
+
+        try:
+            results = self._collection.query(
+                query_embeddings=query_embedding.tolist(),
+                n_results=n_fetch,
+                include=["documents", "metadatas", "distances"],
+                where=where,
+            )
+        except Exception as e:
+            logger.debug("Chroma query with where failed (%s), retrying without filter", e)
+            results = self._collection.query(
+                query_embeddings=query_embedding.tolist(),
+                n_results=n_fetch,
+                include=["documents", "metadatas", "distances"],
+            )
 
         tasks: List[ClinicalTask] = []
-        for i, (doc, meta, dist) in enumerate(
-            zip(results["documents"][0], results["metadatas"][0], results["distances"][0])
-        ):
+        ids_list = results.get("ids") or [[]]
+        doc_row = results["documents"][0]
+        meta_row = results["metadatas"][0]
+        dist_row = results["distances"][0]
+        id_row = ids_list[0] if ids_list else []
+
+        for i, (doc, meta, dist) in enumerate(zip(doc_row, meta_row, dist_row)):
             distance = float(dist) if dist is not None else 1.0
             similarity01 = 1.0 - distance
-            if similarity01 < 0.0:
-                similarity01 = 0.0
-            if similarity01 > 1.0:
-                similarity01 = 1.0
+            similarity01 = max(0.0, min(1.0, similarity01))
 
-            header = meta.get("header") if isinstance(meta, dict) else None
-            header_str = str(header).lower() if header is not None else ""
-            if "high" in header_str:
-                difficulty = 4
-            elif "low" in header_str:
-                difficulty = 2
-            elif "moderate" in header_str:
-                difficulty = 3
-            else:
-                difficulty = 3
+            meta_dict = meta if isinstance(meta, dict) else {}
+            header = meta_dict.get("header")
+            source_reference = str(meta_dict.get("source_file", "Unknown"))
+            pages = meta_dict.get("page_numbers")
+            symptom_tags = _symptom_tags_from_metadata(meta_dict, clinical_tags)
+            difficulty = _difficulty_from_metadata(meta_dict)
+            xp_reward = _xp_from_metadata(meta_dict)
 
-            source_reference = str(meta.get("source_file", "Unknown")) if isinstance(meta, dict) else "Unknown"
-            pages = meta.get("page_numbers") if isinstance(meta, dict) else None
+            chunk_id = id_row[i] if i < len(id_row) else f"kb_task_{i}"
 
             tasks.append(
                 ClinicalTask(
-                    task_id=f"kb_task_{i}",
+                    task_id=str(chunk_id),
                     content=str(doc),
-                    symptom_tags=clinical_tags,
+                    symptom_tags=symptom_tags,
                     difficulty=difficulty,
-                    xp_reward=10,
+                    xp_reward=xp_reward,
                     source_reference=source_reference,
                     metadata={
                         "similarity": float(similarity01),
                         "distance": float(distance),
                         "pages": str(pages) if pages is not None else None,
                         "section": str(header) if header is not None else None,
+                        "tag_primary": meta_dict.get("tag_primary"),
                     },
                 )
             )
 
-        return tasks
-
+        return tasks[:top_k]

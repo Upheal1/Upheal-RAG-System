@@ -1,15 +1,14 @@
-## Upheal microservices workspace
+# Upheal microservices (`services/`)
 
-This workspace was created from the `upheal-microservices_cef92291.plan.md` plan.
+Canonical documentation for this workspace lives under **[`docs/`](../docs/README.md)**.
 
-Current state:
-- `services/shared/` contains Pydantic contracts and common utilities.
-- `services/assessment/` implements `build_user_context()` with the `R_app` (screen time) math.
-- `services/knowledge_base/`, `services/ingestion/`, and `services/architect/` contain import-safe scaffolding.
-- `services/gateway/` exposes a FastAPI entrypoint with:
-  - `GET /health`
-  - `POST /api/assess`
+- **Gateway, API contract, Chroma:** [docs/services/microservices.md](../docs/services/microservices.md)
+- **Ingestion & enriched index:** [docs/services/ingestion.md](../docs/services/ingestion.md)
+- **Roadmap & team split:** [docs/roadmap/upheal-rag-next-phase.md](../docs/roadmap/upheal-rag-next-phase.md)
 
-Next iteration (per plan): port real form logic, implement hybrid search filtering metadata,
-and connect architect reranking to the formatted chunk metadata pipeline.
+Quick run (from repo root):
 
+```bash
+export PYTHONPATH=.
+python -m uvicorn services.gateway.main:app --host 0.0.0.0 --port 8000
+```
