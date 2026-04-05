@@ -2,20 +2,25 @@
 
 AI-powered clinical assessment system combining Bayesian inference with RAG (Retrieval-Augmented Generation) for evidence-based treatment recommendations.
 
+**Documentation hub:** [docs/README.md](docs/README.md) (getting started, architecture, microservices API, ingestion, roadmap, deployment, legacy `src/` reference).
+
 ## 🏗️ Project Structure
 
 ```
 UpHeal/
+├── docs/                     # Canonical documentation (start here)
+├── services/                 # Microservices-style gateway + domains (recommended API)
 ├── src/
 │   ├── clinical_forms/       # Assessment form logic (Bayesian inference)
-│   ├── rag/                  # RAG system (vector database queries)
-│   ├── api/                  # FastAPI backend server
+│   ├── rag/                  # RAG scripts (vector build, query)
+│   ├── api/                  # Legacy FastAPI monolith
 │   └── integration/          # System integration scripts
+├── tests/                    # Pytest (services)
 ├── data/
-│   ├── vector_db_mini/       # ChromaDB vector store (DSM-5-TR)
-│   ├── books/                # Source PDF (DSM-5-TR)
+│   ├── vector_db_mini/       # ChromaDB vector store
+│   ├── books/                # Source PDFs
 │   └── rag_chunks/           # Preprocessed semantic chunks
-└── my_app/                   # Flutter mobile application
+└── my_app/                   # Flutter mobile application (if present)
 ```
 
 ## 🚀 Quick Start
@@ -28,21 +33,19 @@ UpHeal/
 ### 2. Install Dependencies
 
 ```bash
-# Navigate to API folder
-cd src/api
-
-# Install Python packages
-pip install -r requirements.txt
+# From repository root (gateway + tests)
+python -m pip install -r requirements.txt
 ```
+
+Legacy monolith only: `cd src/api` and `python -m pip install -r requirements.txt`.
 
 ### 3. Run the API Server
 
-```bash
-# Start FastAPI server
-python main.py
-```
+**Recommended (microservices gateway):** from repo root, `export PYTHONPATH=.` then `python -m uvicorn services.gateway.main:app --host 0.0.0.0 --port 8000`. See [docs/getting-started.md](docs/getting-started.md).
 
-Server will start at `http://localhost:8000`
+**Legacy:** `cd src/api` and `python main.py`.
+
+Server: `http://localhost:8000`
 
 ### 4. Test the System
 
@@ -148,4 +151,4 @@ See LICENSE file
 
 ---
 
-For detailed setup instructions, see the API Testing Guide in the docs.
+For detailed setup and architecture, see [docs/getting-started.md](docs/getting-started.md).

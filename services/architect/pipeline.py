@@ -57,9 +57,10 @@ def rerank_tasks(
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    top_tasks = [t for _, t in scored[: max(1, int(top_n))]]
-    # Attach score to metadata for transparency/debug.
-    for t, (score, _) in zip(top_tasks, scored[: len(top_tasks)]):
+    n = max(1, int(top_n))
+    top_with_scores = scored[:n]
+    top_tasks = [t for _, t in top_with_scores]
+    for t, (score, _) in zip(top_tasks, top_with_scores):
         t.metadata["triple_threat_score"] = float(score)
     return top_tasks
 

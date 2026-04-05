@@ -25,6 +25,20 @@ def default_format_chunk_metadata(chunk_text: str) -> Dict[str, Any]:
     }
 
 
+def difficulty_to_int(difficulty: Any) -> int:
+    """Map formatter difficulty (str or int) to 1..5 for Chroma metadata."""
+    if isinstance(difficulty, int):
+        return max(1, min(5, difficulty))
+    s = str(difficulty).lower().strip()
+    if s in ("low", "easy"):
+        return 2
+    if s in ("high", "hard"):
+        return 4
+    if s in ("medium", "moderate", "med"):
+        return 3
+    return 3
+
+
 def format_chunk_metadata(
     chunk_text: str,
     formatter: Optional[Callable[[str], Dict[str, Any]]] = None,
