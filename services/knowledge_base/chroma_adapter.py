@@ -150,15 +150,27 @@ class ChromaKnowledgeBase:
 
         query_embedding = self._model.encode([query_text])
         where = _build_where_filter(user_context)
-        n_fetch = min(max(top_k * 3, top_k), 50)
+        n_fetch = min(max(top_k * 4, 15), 50)  # Tuned n_fetch slightly higher for better reranking
+
+        where_document = None
+        if query_text:
+            # Build basic where_document containing top keyword
+            search_terms = [t for t in query_text.split() if len(t) > 3]
+            if search_terms:
+                where_document = {"$contains": search_terms[0].lower()}
 
         try:
-            results = self._collection.query(
-                query_embeddings=query_embedding.tolist(),
-                n_results=n_fetch,
-                include=["documents", "metadatas", "distances"],
-                where=where,
-            )
+            kwargs = {
+                "query_embeddings": query_embedding.tolist(),
+                "n_results": n_fetch,
+                "include": ["documents", "metadatas", "distances"],
+            }
+            if where:
+                kwargs["where"] = where
+            if where_document:
+                kwargs["where_document"] = where_document
+                
+            results = self._collection.query(**kwargs)
         except Exception as e:
             logger.debug("Chroma query with where failed (%s), retrying without filter", e)
             results = self._collection.query(
