@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Dict, List
 
 from services.shared.schemas import ClinicalTask, FinalRoadmap
 
@@ -14,6 +14,16 @@ CRISIS_KEYWORDS: List[str] = [
     "suicidal",
     "overdose",
     "immediate danger",
+    "want to die",
+    "can't go on",
+    "no reason to live",
+    "hurt myself",
+    "cut myself",
+    "jump off",
+    "hang myself",
+    "poison myself",
+    "take pills",
+    "shoot myself",
 ]
 
 ROBOTIC_TONE_KEYWORDS: List[str] = [
@@ -23,10 +33,40 @@ ROBOTIC_TONE_KEYWORDS: List[str] = [
     "i'm just",
     "for informational purposes only",
     "i don't have",
+    "i am not a doctor",
+    "i can't provide medical advice",
+    "i can't diagnose",
+    "cannot diagnose",
 ]
 
+_MESSAGES: Dict[str, Dict[str, str]] = {
+    "en": {
+        "red": (
+            "I'm really sorry you're going through this. If you feel in immediate danger, "
+            "or you're thinking about harming yourself, please contact your local emergency number now. "
+            "If you can, reach out right away to a trusted person or support line, and seek urgent "
+            "help from a qualified mental health professional."
+        ),
+        "yellow": (
+            "Here are personalized next steps based on your responses and screen-time pattern. "
+            "Please treat these as general guidance and consider discussing them with a qualified clinician."
+        ),
+    },
+    "ar": {
+        "red": (
+            "أنا آسف لأنك تمرّ بهذا. إذا كنت في خطر فوري أو تفكر في إيذاء نفسك، "
+            "فالرجاء الاتصال برقم الطوارئ المحلي فورًا. إن استطعت، تواصل حالًا مع شخص موثوق أو خط دعم، "
+            "واطلب مساعدة عاجلة من مختص/ة بالصحة النفسية."
+        ),
+        "yellow": (
+            "هذه خطوات تالية مُخصصة بناءً على إجاباتك ونمط وقت الشاشة. "
+            "يرجى اعتبارها إرشادات عامة، وفكّر في مناقشتها مع مختص/ة مؤهل/ة."
+        ),
+    },
+}
 
-def audit_roadmap(roadmap: FinalRoadmap) -> FinalRoadmap:
+
+def audit_roadmap(roadmap: FinalRoadmap, *, locale: str = "en") -> FinalRoadmap:
     """
     Audit the roadmap text for:
     - crisis keywords
@@ -40,13 +80,11 @@ def audit_roadmap(roadmap: FinalRoadmap) -> FinalRoadmap:
     crisis_detected = any(k in text for k in CRISIS_KEYWORDS)
     robotic_detected = any(k in text for k in ROBOTIC_TONE_KEYWORDS)
 
+    loc = "ar" if str(locale).lower().startswith("ar") else "en"
+    msg = _MESSAGES.get(loc, _MESSAGES["en"])
+
     if crisis_detected:
-        emergency = (
-            "I'm really sorry you're going through this. If you feel in immediate danger, "
-            "or you're thinking about harming yourself, please contact your local emergency number now. "
-            "If you can, reach out right away to a trusted person or support line, and seek urgent "
-            "help from a qualified mental health professional."
-        )
+        emergency = msg["red"]
 
         roadmap.overview_paragraph = emergency
         roadmap.safety_status = "RED"
@@ -69,10 +107,7 @@ def audit_roadmap(roadmap: FinalRoadmap) -> FinalRoadmap:
     if robotic_detected:
         roadmap.safety_status = "YELLOW"
         roadmap.next_checkup_days = 7
-        roadmap.overview_paragraph = (
-            "Here are personalized next steps based on your responses and screen-time pattern. "
-            "Please treat these as general guidance and consider discussing them with a qualified clinician."
-        )
+        roadmap.overview_paragraph = msg["yellow"]
         return roadmap
 
     roadmap.safety_status = "GREEN"

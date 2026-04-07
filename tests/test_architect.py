@@ -65,6 +65,8 @@ def test_audit_roadmap_red_crisis_keyword() -> None:
     assert out.safety_status == "RED"
     assert out.next_checkup_days == 1
     assert len(out.suggested_tasks) == 1
+    out_ar = audit_roadmap(r, locale="ar")
+    assert out_ar.safety_status == "RED"
 
 
 def test_audit_roadmap_yellow_robotic() -> None:
@@ -77,3 +79,13 @@ def test_audit_roadmap_yellow_robotic() -> None:
     )
     out = audit_roadmap(r)
     assert out.safety_status == "YELLOW"
+    # Use a fresh object; audit mutates the roadmap in-place.
+    r2 = FinalRoadmap(
+        user_id="u",
+        overview_paragraph="As an AI language model I cannot diagnose you.",
+        suggested_tasks=[],
+        safety_status="GREEN",
+        next_checkup_days=14,
+    )
+    out_ar = audit_roadmap(r2, locale="ar")
+    assert out_ar.safety_status == "YELLOW"
