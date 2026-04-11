@@ -11,17 +11,22 @@ def default_format_chunk_metadata(chunk_text: str) -> Dict[str, Any]:
     """
     text = chunk_text.lower()
     clinical_tags = []
-    if "anxiety" in text:
+    if any(k in text for k in ["anxiety", "panic", "worry", "gad"]):
         clinical_tags.append("anxiety")
-    if "depression" in text:
+    if any(k in text for k in ["depression", "sadness", "phq", "hopeless"]):
         clinical_tags.append("depression")
+    if any(k in text for k in ["sleep", "insomnia"]):
+        clinical_tags.append("sleep")
+        
+    tag_primary = clinical_tags[0] if clinical_tags else "general"
     if not clinical_tags:
         clinical_tags = ["general"]
 
     return {
-        "xp_reward": 0,
-        "difficulty": "medium",
-        "clinical_tags": clinical_tags,
+        "tag_primary": tag_primary,
+        "clinical_tags": ", ".join(clinical_tags),
+        "difficulty": 3,
+        "xp_reward": 10,
     }
 
 

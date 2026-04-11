@@ -1,0 +1,13 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.4, pytest-9.0.2, pluggy-1.6.0 -- C:\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\Lenovo\Documents\GitHub\Upheal-RAG-System
+configfile: pytest.ini
+plugins: anyio-4.10.0, dash-3.0.3
+collecting ... collected 3 items
+
+tests/test_chroma_adapter.py::test_build_where_filter PASSED             [ 33%]
+tests/test_chroma_adapter.py::test_retrieve_tasks PASSED                 [ 66%]
+tests/test_chroma_adapter.py::test_is_healthy PASSED                     [100%]
+
+============================== 3 passed in 0.13s ==============================
