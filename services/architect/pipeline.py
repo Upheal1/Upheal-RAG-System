@@ -96,6 +96,7 @@ def run_architect_pipeline(
     candidate_tasks: Sequence[ClinicalTask],
     *,
     top_n: int = 5,
+    locale: str = "en",
 ) -> FinalRoadmap:
     suggested = rerank_tasks(candidate_tasks, user_context, top_n=top_n)
 
@@ -107,5 +108,5 @@ def run_architect_pipeline(
         next_checkup_days=14,
     )
 
-    return audit_roadmap(draft)
+    return audit_roadmap(draft, locale=locale)
 

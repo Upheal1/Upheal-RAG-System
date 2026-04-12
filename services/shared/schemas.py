@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -33,4 +33,32 @@ class FinalRoadmap(BaseModel):
     suggested_tasks: List[ClinicalTask] = Field(default_factory=list)
     safety_status: Literal["GREEN", "YELLOW", "RED"]
     next_checkup_days: int
+
+
+class LegacyRAGRecommendation(BaseModel):
+    """
+    Legacy Flutter/API shape for a single RAG hit.
+    Mirrors `src/api/models.py:RAGRecommendation`.
+    """
+
+    source: str
+    section: str
+    content: str
+    similarity: float
+    pages: str
+
+
+class AssessGatewayResponse(FinalRoadmap):
+    """
+    `POST /api/assess` response: full roadmap plus legacy clinical/RAG fields.
+    """
+
+    anxiety_probability: float
+    depression_probability: float
+    severity: Dict[str, str]
+    comorbidity: str
+    rag_recommendations: List[LegacyRAGRecommendation] = Field(default_factory=list)
+    query_used: str
+    timestamp: str
+    session_id: Optional[str] = None
 

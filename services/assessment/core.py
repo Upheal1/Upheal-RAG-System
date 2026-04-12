@@ -2,9 +2,27 @@ from __future__ import annotations
 
 import importlib.util
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+try:
+    # Prefer FastAPI's exception type when available (gateway runtime).
+    from fastapi import HTTPException  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    class HTTPException(Exception):
+        """
+        Lightweight fallback for environments where FastAPI isn't installed.
+
+        Provides `status_code` and `detail` attributes compatible with how this
+        module is used in unit tests and by the gateway when FastAPI is present.
+        """
+
+        def __init__(self, status_code: int, detail: Any):
+            super().__init__(detail)
+            self.status_code = int(status_code)
+            self.detail = detail
 
 from services.shared.schemas import UserContext
 
@@ -52,6 +70,138 @@ def sigmoid_r_app(screen_time_minutes: float, *, threshold_minutes: float = 60.0
     return 1.0 / (1.0 + math.exp(z))
 
 
+def sigmoid_probability_from_scale_total(
+    total: int,
+    max_scale: int,
+    *,
+    k: float = 0.05,
+) -> float:
+    """
+    Convert a raw PHQ/GAD scale total into a pseudo-probability via a sigmoid.
+
+    We use the same steepness constant as `sigmoid_r_app` (k=0.05) and center
+    the curve at half the max scale.
+    """
+    t = float(int(total))
+    m = float(int(max_scale))
+    midpoint = m / 2.0
+    z = -float(k) * (t - midpoint)
+    return 1.0 / (1.0 + math.exp(z))
+
+
+_GAD7_RE = re.compile(r"^gad7_q([1-7])$", re.IGNORECASE)
+_PHQ9_RE = re.compile(r"^phq9_q([1-9])$", re.IGNORECASE)
+
+
+def _coerce_item_score(v: Any) -> Optional[int]:
+    """Coerce an item score to int in [0..3]; return None if invalid."""
+    try:
+        iv = int(v)
+    except Exception:
+        return None
+    if 0 <= iv <= 3:
+        return iv
+    return None
+
+
+def validate_phq9_gad7_answers(answers: Dict[str, int]) -> None:
+    """
+    Strict clinical validation:
+    - If any GAD-7/PHQ-9 item id is present, require complete sets:
+      gad7_q1..gad7_q7 and phq9_q1..phq9_q9.
+    - Values must be integers 0..3.
+    - Any key that contains 'gad'/'phq' but doesn't match expected ids fails fast.
+    """
+    gad_items: Dict[int, int] = {}
+    phq_items: Dict[int, int] = {}
+    unknown_scale_keys: list[str] = []
+
+    for k, v in (answers or {}).items():
+        ks = str(k)
+        m_gad = _GAD7_RE.match(ks)
+        m_phq = _PHQ9_RE.match(ks)
+        if m_gad:
+            gad_items[int(m_gad.group(1))] = int(v)
+            continue
+        if m_phq:
+            phq_items[int(m_phq.group(1))] = int(v)
+            continue
+        if "gad" in ks.lower() or "phq" in ks.lower():
+            unknown_scale_keys.append(ks)
+
+    if unknown_scale_keys:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_scale_item_ids",
+                "message": "GAD/PHQ-like keys must match gad7_q1..gad7_q7 and phq9_q1..phq9_q9.",
+                "keys": sorted(set(unknown_scale_keys)),
+            },
+        )
+
+    if not gad_items and not phq_items:
+        return
+
+    missing_gad = [f"gad7_q{i}" for i in range(1, 8) if i not in gad_items]
+    missing_phq = [f"phq9_q{i}" for i in range(1, 10) if i not in phq_items]
+    if missing_gad or missing_phq:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "incomplete_scale",
+                "message": "Strict validation requires full GAD-7 (7 items) and PHQ-9 (9 items) when any scale item is present.",
+                "missing": missing_gad + missing_phq,
+            },
+        )
+
+    bad_vals: list[str] = []
+    for i in range(1, 8):
+        v = gad_items[i]
+        if not (0 <= int(v) <= 3):
+            bad_vals.append(f"gad7_q{i}={v}")
+    for i in range(1, 10):
+        v = phq_items[i]
+        if not (0 <= int(v) <= 3):
+            bad_vals.append(f"phq9_q{i}={v}")
+    if bad_vals:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "invalid_item_values",
+                "message": "PHQ-9 and GAD-7 item values must be integers in range 0..3.",
+                "items": bad_vals,
+            },
+        )
+
+
+def gad7_raw_total(answers: Dict[str, int]) -> int:
+    return sum(int(answers.get(f"gad7_q{i}", 0)) for i in range(1, 8))
+
+
+def phq9_raw_total(answers: Dict[str, int]) -> int:
+    return sum(int(answers.get(f"phq9_q{i}", 0)) for i in range(1, 10))
+
+
+def severity_label_from_gad7_total(gad7_total: int) -> str:
+    # Requested rule: >15 Severe, >10 Moderate, else Mild.
+    t = int(gad7_total)
+    if t > 15:
+        return "Severe"
+    if t > 10:
+        return "Moderate"
+    return "Mild"
+
+
+def severity_label_from_phq9_total(phq9_total: int) -> str:
+    # Common PHQ-9 cutoffs: 0-9 Mild, 10-19 Moderate, 20-27 Severe.
+    t = int(phq9_total)
+    if t >= 20:
+        return "Severe"
+    if t >= 10:
+        return "Moderate"
+    return "Mild"
+
+
 def infer_answers_dict(raw_forms_json: Any) -> Optional[Dict[str, int]]:
     """
     Extract answers from supported payload shapes:
@@ -60,13 +210,22 @@ def infer_answers_dict(raw_forms_json: Any) -> Optional[Dict[str, int]]:
     """
     if isinstance(raw_forms_json, dict):
         if isinstance(raw_forms_json.get("answers"), dict):
-            return {str(k): int(v) for k, v in raw_forms_json["answers"].items()}
+            out: Dict[str, int] = {}
+            for k, v in raw_forms_json["answers"].items():
+                iv = _coerce_item_score(v)
+                if iv is None:
+                    continue
+                out[str(k)] = iv
+            return out
         keys = list(raw_forms_json.keys())
         if any(isinstance(k, str) and ("gad" in k.lower() or "phq" in k.lower()) for k in keys):
-            try:
-                return {str(k): int(v) for k, v in raw_forms_json.items()}
-            except Exception:
-                return None
+            out2: Dict[str, int] = {}
+            for k, v in raw_forms_json.items():
+                iv = _coerce_item_score(v)
+                if iv is None:
+                    continue
+                out2[str(k)] = iv
+            return out2
     return None
 
 
@@ -171,6 +330,7 @@ def build_user_context(
     r_app = sigmoid_r_app(screen_time_minutes, threshold_minutes=60.0)
 
     answers = infer_answers_dict(raw_forms_json) or {}
+    validate_phq9_gad7_answers(answers)
     if answers:
         form_scores = _merge_scale_and_bayesian(answers)
     else:
