@@ -6,6 +6,33 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Unreleased]
 
+---
+
+## [Completed]
+
+### A-HOZ-03: PDF Extraction and Noise Filter
+
+**Branch:** `A-HOZ-03-pdf-extraction`  
+**PR:** [#7](https://github.com/Upheal1/Upheal-RAG-System/pull/7)  
+**Status:** ✅ Done (pending merge)
+
+**Files Changed:**
+- `services/ingestion/pdf_utils.py` - PDF extraction and noise filtering
+- `tests/test_pdf_utils.py` - 38 new tests
+
+**Features Implemented:**
+- Text extraction using pdfplumber with structure preservation
+- Noise filtering: bibliography, headers/footers, disclaimers, index sections
+- Unicode normalization and whitespace cleanup
+- SHA-256 file hashing for integrity
+- Overlapping chunk extraction
+- Batch processing with `extract_all_pdfs()`
+- Structured logging integration
+
+**Testing:** 71 tests passing
+
+---
+
 ### A-HOZ-02: Structured JSON Logger
 
 **Branch:** `A-HOZ-02-logging`  
@@ -23,16 +50,9 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 - `configure_logging()` - Configures root logger with JSON/plain output, optional file path
 - Convenience helpers: `log_pdf_start()`, `log_chunk_created()`, `log_formatter_done()`, `log_chroma_upsert()`
 
-**Example Output:**
-```json
-{"timestamp": "2026-04-13T14:18:02+00:00", "service": "ingestion.pdf_utils", "event": "ingestion.pdf.start", "payload": {"source_path": "/data/test.pdf", "sha256": "abc123"}}
-```
-
-**Testing:** 33 tests passing
+**Testing:** 71 tests passing
 
 ---
-
-## [Previous]
 
 ### A-HOZ-01: Pydantic Schemas
 
@@ -46,8 +66,8 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## Pending Tasks
 
-### A-HOZ-03: PDF Extraction and Noise Filter
-**File:** `services/ingestion/pdf_utils.py`  
+### A-HOZ-04: Semantic Chunker (15% overlap)
+**File:** `services/ingestion/semantic_chunker.py`  
 **Depends On:** A-HOZ-02  
 **Status:** 🔲 Not Started
 
