@@ -72,6 +72,7 @@ Requirements:
 
 ### A-YAH-06: Gamifier Agent
 **File:** `services/architect/logic.py`  
+**Assignee:** Ahmed  
 **Status:** 🔲 Not Started (can start immediately)
 
 XP Formula:
