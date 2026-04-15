@@ -16,6 +16,7 @@ Canonical documentation for the project. Package-level folders (`services/`, `sr
 | [Implementation Status](./implementation/README.md) | Task board, sprint timeline, progress |
 | [Hozaifa Changelog](./implementation/hozaifa-changelog.md) | Hozaifa's implementation history |
 | [Yahya Changelog](./implementation/yahya-changelog.md) | Yahya's implementation history |
+| [Ahmed Changelog](./implementation/ahmed-changelog.md) | Ahmed's implementation history |
 | [Quick Reference](./implementation/quick-reference.md) | Common patterns and workflows |
 | **Reference (legacy `src/`)** | |
 | [Legacy FastAPI (`src/api`)](reference/legacy-api.md) | Original monolith server |

@@ -36,7 +36,7 @@ Tracks progress on Approach A (Foundation-First) implementation tasks.
 | A-YAH-03 | ClinicalTask fixtures | 🔲 Pending | - | |
 | A-YAH-04 | Knowledge retrieval (real adapter) | 🔲 Pending | - | After A-HOZ-06 |
 | A-YAH-05 | Triple-Threat reranking | 🔲 Pending | - | |
-| A-YAH-06 | Gamifier Agent (XP + sequencing) | 🔲 Pending | - | |
+| A-YAH-06 | Gamifier Agent (XP + sequencing) | 🔲 Pending | - | Assigned to Ahmed |
 | A-YAH-07 | Clinical Auditor | ✅ Done | - | In `main` |
 | A-YAH-08 | Arabic + English i18n | 🔲 Pending | - | |
 | A-YAH-09 | Full orchestration chain | 🔲 Pending | - | |
@@ -57,7 +57,7 @@ Tracks progress on Approach A (Foundation-First) implementation tasks.
 |------|------|--------|-----|-------|
 | A-YAH-04 | Knowledge retrieval | 🔲 Pending | - | After A-HOZ-06 |
 | A-YAH-05 | Triple-Threat reranking | 🔲 Pending | - | |
-| A-YAH-06 | Gamifier Agent | 🔲 Pending | - | |
+| A-YAH-06 | Gamifier Agent | 🔲 Pending | - | Assigned to Ahmed |
 | A-YAH-07 | Clinical Auditor | ✅ Done | - | |
 | A-YAH-08 | i18n constants | 🔲 Pending | - | |
 | A-YAH-09 | Full orchestration chain | 🔲 Pending | - | |
