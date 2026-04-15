@@ -210,6 +210,30 @@ class _StructuredLogger:
         self._logger = logger
         self._service = service
 
+    def _log_std(
+        self,
+        level: int,
+        msg: str,
+        *args: Any,
+        exc_info: Any = None,
+        stack_info: bool = False,
+    ) -> None:
+        """
+        Compatibility shim for stdlib logging-style calls:
+        `logger.info("x=%s", x)` and `logger.exception("...", exc_info=True)`.
+
+        These emit `event="log"` and rely on `msg` formatting.
+        """
+        extra = {"service": self._service, "event": "log", "payload": {}}
+        self._logger.log(
+            level,
+            msg,
+            *args,
+            extra=extra,
+            exc_info=exc_info,
+            stack_info=stack_info,
+        )
+
     def _log(
         self,
         level: int,
@@ -223,24 +247,74 @@ class _StructuredLogger:
         }
         self._logger.log(level, event, extra=extra)
 
-    def debug(self, event: str, **kwargs: Any) -> None:
-        self._log(logging.DEBUG, event, kwargs)
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        if args or "exc_info" in kwargs or "stack_info" in kwargs:
+            self._log_std(
+                logging.DEBUG,
+                msg,
+                *args,
+                exc_info=kwargs.get("exc_info"),
+                stack_info=bool(kwargs.get("stack_info", False)),
+            )
+            return
+        self._log(logging.DEBUG, msg, kwargs)
 
-    def info(self, event: str, **kwargs: Any) -> None:
-        self._log(logging.INFO, event, kwargs)
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        if args or "exc_info" in kwargs or "stack_info" in kwargs:
+            self._log_std(
+                logging.INFO,
+                msg,
+                *args,
+                exc_info=kwargs.get("exc_info"),
+                stack_info=bool(kwargs.get("stack_info", False)),
+            )
+            return
+        self._log(logging.INFO, msg, kwargs)
 
-    def warning(self, event: str, **kwargs: Any) -> None:
-        self._log(logging.WARNING, event, kwargs)
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        if args or "exc_info" in kwargs or "stack_info" in kwargs:
+            self._log_std(
+                logging.WARNING,
+                msg,
+                *args,
+                exc_info=kwargs.get("exc_info"),
+                stack_info=bool(kwargs.get("stack_info", False)),
+            )
+            return
+        self._log(logging.WARNING, msg, kwargs)
 
-    def error(self, event: str, **kwargs: Any) -> None:
-        self._log(logging.ERROR, event, kwargs)
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        if args or "exc_info" in kwargs or "stack_info" in kwargs:
+            self._log_std(
+                logging.ERROR,
+                msg,
+                *args,
+                exc_info=kwargs.get("exc_info"),
+                stack_info=bool(kwargs.get("stack_info", False)),
+            )
+            return
+        self._log(logging.ERROR, msg, kwargs)
 
-    def critical(self, event: str, **kwargs: Any) -> None:
-        self._log(logging.CRITICAL, event, kwargs)
+    def critical(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        if args or "exc_info" in kwargs or "stack_info" in kwargs:
+            self._log_std(
+                logging.CRITICAL,
+                msg,
+                *args,
+                exc_info=kwargs.get("exc_info"),
+                stack_info=bool(kwargs.get("stack_info", False)),
+            )
+            return
+        self._log(logging.CRITICAL, msg, kwargs)
+
+    def exception(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        # Mirror logging.Logger.exception() behavior (ERROR + exc_info=True by default).
+        exc_info = kwargs.get("exc_info", True)
+        self._log_std(logging.ERROR, msg, *args, exc_info=exc_info)
 
 
 # -----------------------------------------------------------------------------
-# Convenience helpers for ingestion pipeline events
+# Convenience help`ers for ingestion pipeline events
 # -----------------------------------------------------------------------------
 
 
