@@ -456,7 +456,7 @@ Score = (SemanticSimilarity \times 0.4) + (FormWeight \times 0.3) + (R_{app} \ti
 
 | Field | Value |
 |-------|-------|
-| Owner | Yahya |
+| Owner | Ahmed |
 | Phase | Phase 2 — Section 3 |
 | File | `services/architect/logic.py` |
 | Complexity | M |
@@ -849,7 +849,7 @@ Score = (SemanticSimilarity \times 0.35) + (FormWeight \times 0.25) + (R_{app} \
 |-----|---------|-------|
 | Mon | A-HOZ-06 complete + handoff session | A-YAH-04: real retrieval |
 | Tue | A-HOZ-07 integrity script | A-YAH-05: Triple-Threat |
-| Wed | A-HOZ-08 health | A-YAH-06: Gamifier |
+| Wed | A-HOZ-08 health | A-YAH-06: Gamifier (Ahmed) |
 | Thu | A-HOZ-09 migration, A-HOZ-10 migrations start | A-YAH-07: Auditor |
 | Fri | A-HOZ-10/11 complete | A-YAH-08 i18n, A-YAH-09 orchestration, A-YAH-10 roadmap endpoint |
 
