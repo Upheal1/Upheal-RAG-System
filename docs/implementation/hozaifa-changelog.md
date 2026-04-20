@@ -10,6 +10,28 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Completed]
 
+### A-HOZ-04: Semantic Chunker
+
+**Branch:** `A-HOZ-04-semantic-chunker`  
+**PR:** [#8](https://github.com/Upheal1/Upheal-RAG-System/pull/8)  
+**Status:** ✅ Done (pending merge)
+
+**Files Changed:**
+- `services/ingestion/semantic_chunker.py` - Semantic chunking implementation
+- `tests/test_semantic_chunker.py` - 30 new tests
+
+**Features Implemented:**
+- Sentence-aware splitting with regex-based boundary detection
+- Sliding window aligned to sentence boundaries
+- 15% overlap between consecutive chunks
+- Topic-shift detection via embedding cosine similarity drop
+- Token count estimation with word-based approximation
+- Chunk overlap info analysis
+
+**Testing:** 101 tests passing (all tests)
+
+---
+
 ### A-HOZ-03: PDF Extraction and Noise Filter
 
 **Branch:** `A-HOZ-03-pdf-extraction`  
@@ -65,28 +87,6 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 ---
 
 ## Pending Tasks
-
-### A-HOZ-04: Semantic Chunker (15% overlap)
-**File:** `services/ingestion/semantic_chunker.py`  
-**Depends On:** A-HOZ-02  
-**Status:** 🔲 Not Started
-
-Requirements:
-- Extract text from PDFs using pdfplumber or pymupdf
-- Preserve headers, lists, tables
-- Noise filter: bibliography, headers/footers, disclaimers, index sections
-- Unit tests for at least two noise classes
-
-### A-HOZ-04: Semantic Chunker
-**File:** `services/ingestion/semantic_chunker.py`  
-**Depends On:** A-HOZ-03  
-**Status:** 🔲 Not Started
-
-Requirements:
-- Sliding window aligned to sentence boundaries
-- 15% overlap between consecutive chunks
-- Topic-shift detection via embedding cosine drop
-- Unit tests with fixture document
 
 ### A-HOZ-05: Formatter Agent
 **File:** `services/ingestion/formatter_agent.py`  
