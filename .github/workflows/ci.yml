@@ -1,4 +1,4 @@
-# CI: lint (syntax) + tests — required before merge when branch protection is configured.
+# CI: lint (syntax) + tests - required before merge when branch protection is configured.
 
 name: CI
 
@@ -46,6 +46,14 @@ jobs:
 
           python-version: "3.11"
 
+          cache: 'pip'
+
+
+
+      - name: Install dependencies
+
+        run: python -m pip install --upgrade pip
+
 
 
       - name: Syntax check (compileall)
@@ -75,6 +83,8 @@ jobs:
         with:
 
           python-version: "3.11"
+
+          cache: 'pip'
 
 
 
