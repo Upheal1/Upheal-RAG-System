@@ -44,7 +44,11 @@ def _get_logger():
 
 LLM_PROVIDER_OPENAI = "openai"
 LLM_PROVIDER_GEMINI = "gemini"
+LLM_PROVIDER_OLLAMA = "ollama"
 LLM_PROVIDER_NONE = "none"
+
+DEFAULT_OLLAMA_MODEL = "qwen2.5:7b-instruct"
+DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 
 DEFAULT_BATCH_SIZE = 10
 MAX_BATCH_SIZE = 25
@@ -133,6 +137,8 @@ def _get_llm_provider() -> str:
         return LLM_PROVIDER_OPENAI
     if os.environ.get("GEMINI_API_KEY"):
         return LLM_PROVIDER_GEMINI
+    if os.environ.get("OLLAMA_BASE_URL") or os.environ.get("OLLAMA_MODEL"):
+        return LLM_PROVIDER_OLLAMA
     return LLM_PROVIDER_NONE
 
 
@@ -191,6 +197,40 @@ def _call_gemini(prompt: str, model: str = "gemini-2.0-flash") -> str:
         return ""
 
 
+def _call_ollama(prompt: str, model: str = DEFAULT_OLLAMA_MODEL) -> str:
+    """Call Ollama API for local LLM inference."""
+    try:
+        import requests
+
+        base_url = os.environ.get("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL)
+        response = requests.post(
+            f"{base_url}/api/generate",
+            json={
+                "model": model,
+                "prompt": prompt,
+                "temperature": 0.3,
+                "max_tokens": 200,
+                "stream": False,
+            },
+            timeout=120,
+        )
+        response.raise_for_status()
+        return response.json().get("response", "")
+    except ImportError:
+        _get_logger().warning(
+            "formatter.ollama_not_installed",
+            message="requests package not installed",
+        )
+        return ""
+    except Exception as e:
+        _get_logger().warning(
+            "formatter.ollama_error",
+            error=str(e),
+            message="Ollama API call failed",
+        )
+        return ""
+
+
 def _build_llm_prompt(chunk_text: str) -> str:
     """Build prompt for LLM to analyze chunk."""
     return f"""Analyze this clinical text chunk and provide metadata.
@@ -237,6 +277,8 @@ def format_chunk_with_llm(chunk_text: str) -> FormatterResult:
         raw_response = _call_openai(prompt)
     elif provider == LLM_PROVIDER_GEMINI:
         raw_response = _call_gemini(prompt)
+    elif provider == LLM_PROVIDER_OLLAMA:
+        raw_response = _call_ollama(prompt)
     else:
         return _format_chunk_fallback(chunk_text)
 
