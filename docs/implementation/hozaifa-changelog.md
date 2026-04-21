@@ -10,11 +10,34 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Completed]
 
+### A-HOZ-05: Formatter Agent
+
+**Branch:** `A-HOZ-05-formatter-agent`  
+**PR:** [#19](https://github.com/Upheal1/Upheal-RAG-System/pull/19)  
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/ingestion/formatter_agent.py` - LLM integration implementation
+- `tests/test_formatter_agent.py` - 26 new tests
+- `.env.example` - Added LLM API key configuration
+
+**Features Implemented:**
+- LLM integration (OpenAI GPT / Google Gemini via env vars)
+- Per-chunk labeling: difficulty (1-5), xp_reward, symptom_tags, safety_risk
+- Output validates against ClinicalTask schema
+- Crisis keywords detection (suicide, self-harm, etc.) sets safety_risk = True
+- Token/cost guard with batch size cap (max 25)
+- Fallback keyword-based formatter when no LLM configured
+
+**Testing:** 138 tests passing (all tests)
+
+---
+
 ### A-HOZ-04: Semantic Chunker
 
 **Branch:** `A-HOZ-04-semantic-chunker`  
 **PR:** [#8](https://github.com/Upheal1/Upheal-RAG-System/pull/8)  
-**Status:** ✅ Done (pending merge)
+**Status:** ✅ Done
 
 **Files Changed:**
 - `services/ingestion/semantic_chunker.py` - Semantic chunking implementation
@@ -88,19 +111,7 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## Pending Tasks
 
-### A-HOZ-05: Formatter Agent
-**File:** `services/ingestion/formatter_agent.py`  
-**Depends On:** A-HOZ-04  
-**Status:** 🔲 Not Started
-
-Requirements:
-- LLM integration (Gemini/GPT)
-- Per-chunk labeling: difficulty, xp_reward, symptom_tags, safety_risk
-- Output validates against ClinicalTask schema
-- Crisis keywords set safety_risk = True
-- Token/cost guard (batch size cap)
-
-### A-HOZ-06: ChromaDB Hybrid Adapter ⭐ GATE
+### A-HOZ-06: ChromaDB Hybrid Adapter ⭐ GATE ChromaDB Hybrid Adapter ⭐ GATE
 **File:** `services/knowledge_base/chroma_adapter.py`  
 **Depends On:** A-HOZ-01, A-HOZ-05  
 **Status:** 🔲 Not Started
