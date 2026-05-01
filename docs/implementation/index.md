@@ -22,14 +22,18 @@ Tracks progress on the UpHeal RAG System implementation using Approach A (Founda
 
 ## Current Sprint
 
-**Week 1: Factory Floor**
+**Week 1: Factory Floor — Extended**
 
-Hozaifa is working on Phase 1 Knowledge Infrastructure:
-- A-HOZ-03: PDF extraction and noise filter
-- A-HOZ-04: Semantic chunker (15% overlap)
-- A-HOZ-05: Formatter Agent (LLM integration)
-- A-HOZ-06: ChromaDB hybrid adapter (GATE)
+Hozaifa has completed Phase 1 Knowledge Infrastructure core:
+- A-HOZ-03 → A-HOZ-06: Factory floor done
+- A-HOZ-07: Integrity check script — ✅ Done
+- A-HOZ-08: GET /health for knowledge base — ✅ Done
+
+Next for Hozaifa:
+- A-HOZ-09: Initial PDF migration script
+- A-HOZ-11: State manager (pathing + Supabase sync)
 
 Yahya can parallelize on:
 - A-YAH-03: ClinicalTask fixtures
+- A-YAH-04: Knowledge retrieval (real adapter, now unblocked)
 - A-YAH-06: Gamifier Agent (pure logic, assigned to Ahmed)

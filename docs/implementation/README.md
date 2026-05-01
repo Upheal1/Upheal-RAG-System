@@ -21,8 +21,8 @@ Tracks progress on Approach A (Foundation-First) implementation tasks.
 | A-HOZ-04 | Semantic chunker (15% overlap) | ✅ Done | - | |
 | A-HOZ-05 | Formatter Agent (LLM integration) | ✅ Done | - | |
 | A-HOZ-06 | **GATE** ChromaDB hybrid adapter | ✅ Done | - | Unlocks Yahya's real retrieval |
-| A-HOZ-07 | Integrity check script | 🔲 Pending | - | |
-| A-HOZ-08 | GET /health for knowledge base | 🔲 Pending | - | |
+| A-HOZ-07 | Integrity check script | ✅ Done | - | `scripts/verify_integrity.py` |
+| A-HOZ-08 | GET /health for knowledge base | ✅ Done | - | `services/knowledge_base/router.py` |
 | A-HOZ-09 | Initial clinical PDF migration script | 🔲 Pending | - | |
 | A-HOZ-10 | Supabase migrations | 🔲 Pending | - | interaction_logs, roadmap_mutations |
 | A-HOZ-11 | State manager (pathing + Supabase sync) | 🔲 Pending | - | |

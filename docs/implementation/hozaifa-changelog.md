@@ -10,6 +10,47 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Completed]
 
+### A-HOZ-07: Integrity Check Script
+
+**Status:** ✅ Done
+
+**Files Changed:**
+- `scripts/verify_integrity.py` - Integrity checker for ChromaDB metadata
+- `tests/test_verify_integrity.py` - 22 tests
+
+**Features Implemented:**
+- Scans every document in a ChromaDB collection for mandatory metadata fields
+- Validates `difficulty` (1-5), `xp_reward` (>= 0), and `clinical_tags` (non-empty)
+- Paginates through large collections (500-item batches)
+- Pretty-prints violation table with `task_id` and missing/invalid fields
+- Exit code 0 when clean, 1 when violations found, 2 on checker errors
+- Respects `UPHEAL_CHROMA_PATH` and `UPHEAL_CHROMA_COLLECTION` env vars
+- Runnable standalone: `python scripts/verify_integrity.py [<path> <collection>]`
+
+**Testing:** 22 tests passing
+
+---
+
+### A-HOZ-08: GET /health for Knowledge Base
+
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/knowledge_base/router.py` - Refactored with `KnowledgeBaseHealthResponse` Pydantic model
+- `services/knowledge_base/chroma_adapter.py` - Added `get_collection_metadata()` helper
+- `tests/test_kb_router.py` - 9 tests
+- `docs/services/microservices.md` - Documented endpoint
+
+**Features Implemented:**
+- Response shape matches Phase 1 spec: `indexed_tasks`, `storage_status`, `last_ingestion`
+- `storage_status` derived as `healthy` | `degraded` | `unavailable`
+- `last_ingestion` read from collection metadata or `config.json` fallback
+- OpenAPI-validated response model
+
+**Testing:** 9 tests passing
+
+---
+
 ### A-HOZ-10: Supabase Schema (Expanded)
 
 **Branch:** `A-HOZ-06-chroma-adapter`
@@ -169,14 +210,9 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## Pending Tasks
 
-### A-HOZ-07: Integrity Check Script
-**File:** `scripts/verify_integrity.py`
-**Depends On:** A-HOZ-06
-**Status:** 🔲 Not Started
-
-### A-HOZ-08: GET /health
-**File:** `services/knowledge_base/router.py`
-**Depends On:** A-HOZ-06
+### A-HOZ-09: Initial PDF Migration Script
+**File:** `scripts/migrate_initial_clinical_library.py`
+**Depends On:** A-HOZ-04, A-HOZ-05, A-HOZ-06
 **Status:** 🔲 Not Started
 
 ### A-HOZ-09: Initial PDF Migration Script
