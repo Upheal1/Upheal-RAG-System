@@ -5,6 +5,19 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class RetrievalQuery(BaseModel):
+    """
+    Controls what the architect pipeline retrieves from the knowledge base.
+    """
+
+    symptom_keywords: List[str] = Field(default_factory=list)
+    max_difficulty: int = Field(default=5, ge=1, le=5)
+    boost_digital_detox: bool = False
+    candidate_count: int = Field(default=10, ge=1)
+    locale: str = "en"
+    query_text: Optional[str] = None
+
+
 class ClinicalTask(BaseModel):
     """
     A single actionable clinical-style recommendation candidate.
@@ -76,4 +89,3 @@ class AssessGatewayResponse(FinalRoadmap):
     query_used: str
     timestamp: str
     session_id: Optional[str] = None
-
