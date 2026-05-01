@@ -259,7 +259,7 @@ In Approach A, Phase 1 implementation on the **real index** is Hozaifa’s lane 
 | Complexity | M                                             |
 | Depends On | A-HOZ-04, A-HOZ-05, A-HOZ-06                  |
 | Blocks     | None                                          |
-| Status     | 🔲 Not Started                                |
+| Status     | ✅ Done                                      |
 
 
 **What & Why:** One-shot ingest from `data/clinical_pdfs/` (or configured path via `services/shared/state.py`) through PDF → chunk → formatter → Chroma.

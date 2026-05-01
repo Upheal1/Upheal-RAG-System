@@ -177,6 +177,29 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ---
 
+### A-HOZ-09: Initial Clinical PDF Migration Script
+
+**Status:** ✅ Done
+
+**Files Changed:**
+- `scripts/migrate_initial_clinical_library.py` - Full pipeline migration script
+- `tests/test_migrate.py` - 12 tests (10 unit, 2 integration)
+
+**Features Implemented:**
+- Loads `semantic_chunks.json`, formats metadata via formatter agent, embeds, upserts into ChromaDB
+- Idempotent: wipe-and-rebuild strategy (deletes existing collection before re-ingestion)
+- `--books` filter for specific source files, or ingests all by default
+- `--use-llm` flag for LLM-based formatting (keyword fallback by default)
+- `--dry-run` mode for validation without ChromaDB writes
+- Structured logging end-to-end via `services.shared.logging`
+- Emits `config.json` with `last_ingestion` timestamp for health endpoint
+- Respects `UPHEAL_CHROMA_PATH`, `UPHEAL_CHROMA_COLLECTION`, `UPHEAL_EMBEDDING_MODEL` env vars
+- CLI: `python scripts/migrate_initial_clinical_library.py [options]`
+
+**Testing:** 12 tests (10 unit + 2 integration with embedding model)
+
+---
+
 ### A-HOZ-02: Structured JSON Logger
 
 **Branch:** `A-HOZ-02-logging`
@@ -209,24 +232,6 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 ---
 
 ## Pending Tasks
-
-### A-HOZ-09: Initial PDF Migration Script
-**File:** `scripts/migrate_initial_clinical_library.py`
-**Depends On:** A-HOZ-04, A-HOZ-05, A-HOZ-06
-**Status:** 🔲 Not Started
-
-### A-HOZ-09: Initial PDF Migration Script
-**File:** `scripts/migrate_initial_clinical_library.py`
-**Depends On:** A-HOZ-04, A-HOZ-05, A-HOZ-06
-**Status:** 🔲 Not Started
-
-### A-HOZ-10: Supabase Migrations
-**Files:** `supabase/migrations/`
-**Status:** 🔲 Not Started
-
-Tables:
-- `interaction_logs` - User interaction telemetry
-- `roadmap_mutations` - Director mutation audit trail
 
 ### A-HOZ-11: State Manager
 **File:** `services/shared/state.py`
