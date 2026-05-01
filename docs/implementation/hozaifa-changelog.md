@@ -231,14 +231,29 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ---
 
-## Pending Tasks
+## Completed
 
 ### A-HOZ-11: State Manager
-**File:** `services/shared/state.py`
-**Depends On:** A-HOZ-10
-**Status:** 🔲 Not Started
 
-Requirements:
-- Pathing helpers for clinical PDF directories
-- Supabase sync hooks with optimistic locking
-- Offline retry backoff (1s, 2s, 4s, cap 60s)
+**Branch:** `A-HOZ-11`
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/shared/state.py` - Full state manager module
+- `tests/test_state.py` - 40 unit tests
+- `.env.example` - Added `UPHEAL_DATA_DIR`, `UPHEAL_SUPABASE_URL`, `UPHEAL_SUPABASE_KEY`
+
+**Features Implemented:**
+- **Pathing helpers:** `data_root()`, `books_dir()`, `rag_chunks_dir()`, `vector_db_path()`, `semantic_chunks_path()`, `config_path()`, `list_pdf_books()`, `ensure_data_dirs()` — all env-override aware (`UPHEAL_DATA_DIR`, `UPHEAL_CHROMA_PATH`, `UPHEAL_CHROMA_COLLECTION`, `UPHEAL_EMBEDDING_MODEL`)
+- **Supabase sync hooks:** `SupabaseSyncHook` with optimistic locking (`version` column), `insert_row()`, `fetch_one()`, `upsert_row()` (conflict detection), `delete_row()`, lazy client construction from env vars
+- **Offline retry backoff:** `retry_with_backoff()` with exponential backoff (1 s → 2 s → 4 s → … cap 60 s), configurable retryable predicate, `OfflineRetryExhausted` exception
+- **Utilities:** `file_sha256()` for integrity checks, `load_config()` / `save_config()` for ingestion config.json round-trips
+- **`SyncConflictError`** raised on stale optimistic-lock writes
+
+**Testing:** 40 unit tests passing
+
+---
+
+## Pending Tasks
+
+---
