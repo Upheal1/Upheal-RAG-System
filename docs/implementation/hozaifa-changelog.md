@@ -10,6 +10,36 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Completed]
 
+### A-HOZ-10: Supabase Schema (Expanded)
+
+**Branch:** `A-HOZ-06-chroma-adapter`
+**Status:** ✅ Done
+
+**Files Changed:**
+- `supabase/migrations/001_create_interaction_logs.sql`
+- `supabase/migrations/002_create_roadmap_mutations.sql`
+- `supabase/migrations/003_create_users_and_profiles.sql`
+- `supabase/migrations/004_create_clinical_tasks.sql`
+- `supabase/migrations/005_create_roadmaps_and_tasks.sql`
+- `supabase/migrations/006_create_assessment_responses.sql`
+- `supabase/migrations/007_create_interest_profiles.sql`
+- `supabase/migrations/008_add_foreign_keys.sql`
+- `supabase/README.md`
+
+**Schema Implemented:**
+- `users` — auth baseline
+- `user_profiles` — GAD-7/PHQ-9 scores, screen time, user_level, modality_weights, tag_boosts
+- `assessment_responses` — raw form submissions (EN/AR)
+- `clinical_tasks` — canonical task definitions synced with Chroma metadata
+- `roadmaps` / `roadmap_tasks` — per-generation roadmap with validity window
+- `interaction_logs` — Phase 3 telemetry (VIEWED/STARTED/COMPLETED/SKIPPED)
+- `roadmap_mutations` — Director mutation audit trail
+- `interest_profiles` — Director-evolved tag/modality preferences
+
+**Foreign keys:** `interaction_logs` and `roadmap_mutations` now reference `users` and `clinical_tasks`.
+
+---
+
 ### A-HOZ-06: ChromaDB Hybrid Adapter ⭐ GATE
 
 **Branch:** `A-HOZ-06-chroma-adapter`

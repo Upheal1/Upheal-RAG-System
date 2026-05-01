@@ -372,31 +372,46 @@ phq9\_normalised = \frac{phq9\_score}{27}
 
 After **A-HOZ-06**, Yahya replaces fixture injection with `services/knowledge_base/chroma_adapter.py`. Hozaifa extends persistence for Phase 3 while supporting adapter bugfixes.
 
-### [A-HOZ-10] Supabase migrations (`interaction_logs`, `roadmap_mutations`)
+### [A-HOZ-10] Supabase schema — full entity model
 
 
-| Field      | Value                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Owner      | Hozaifa                                                                                                                  |
-| Phase      | Phase 3 — data model (early delivery)                                                                                    |
-| File       | `supabase/migrations/YYYYMMDDHHMMSS_interaction_logs.sql` and `supabase/migrations/YYYYMMDDHHMMSS_roadmap_mutations.sql` |
-| Complexity | M                                                                                                                        |
-| Depends On | A-HOZ-01                                                                                                                 |
-| Blocks     | A-YAH-11                                                                                                                 |
-| Status     | 🔲 Not Started                                                                                                           |
+| Field      | Value                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| Owner      | Hozaifa                                                                                                            |
+| Phase      | Phase 3 — data model (early delivery)                                                                              |
+| Files      | `supabase/migrations/001–008_*.sql` (9 migrations)                                                                |
+| Complexity | L                                                                                                                  |
+| Depends On | A-HOZ-01                                                                                                           |
+| Blocks     | A-YAH-11, A-HOZ-11                                                                                                  |
+| Status     | ✅ Done (expanded from Phase 3-only to full entity model)                                                         |
 
 
-**What & Why:** Creates tables from Phase 3 (`interaction_logs`, `roadmap_mutations` with `rationale`, `pre_mutation_state`, etc.) so telemetry and mutations are ready before Director code lands.
+**What & Why:** Full relational schema — `users`, `user_profiles`, `assessment_responses`, `clinical_tasks`, `roadmaps`, `roadmap_tasks`, `interaction_logs`, `roadmap_mutations`, `interest_profiles` — so every agent and the Director have a persistent store.
 
 **Acceptance Criteria:**
 
-- SQL matches Phase 3 column lists (including `rationale` text).
-- Migrations apply cleanly on empty Supabase project.
-- Linked from `docs/deployment.md` or roadmap Phase 3 file.
+- All 9 migrations apply cleanly on empty Supabase project (in order).
+- FK constraints wired: `interaction_logs`/`roadmap_mutations` → `users`; `interaction_logs` → `clinical_tasks`; `roadmaps`/`roadmap_tasks` → their parents.
+- GIN indexes on JSONB columns (`clinical_tags`, `tag_preferences`, `modality_preferences`).
+- Documented in `supabase/README.md` with ER diagram.
 
-**Approach-Specific Note:** Pulled earlier in Week 2 in Approach A; Approach B schedules **B-HOZ-10** in parallel Week 2 with more concurrent schema touchpoints.
+**Schema Delivered:**
 
-> ⚠️ **Integration Risk:** Yahya’s telemetry task assumes these tables exist—coordinate migration apply order on shared dev DB.
+| Table | Key columns |
+|---|---|
+| `users` | `id`, `email` |
+| `user_profiles` | `screen_time_minutes`, `gad7_score`, `phq9_score`, `user_level`, `modality_weights`, `tag_boosts` |
+| `assessment_responses` | `form_payload` (JSONB), derived scores, `locale` |
+| `clinical_tasks` | `difficulty`, `xp_reward`, `safety_risk`, `utility_score`, `clinical_tags`, `modality`, `chroma_task_id` |
+| `roadmaps` | `user_id`, `generation_number`, `status`, `director_overrides`, `valid_from/until` |
+| `roadmap_tasks` | `roadmap_id`, `task_id`, `sequence_order`, `xp_earned`, `status` |
+| `interaction_logs` | `user_id`, `task_id`, `interaction_type`, `completion_time`, `drop_off_point` |
+| `roadmap_mutations` | `kind`, `pre/post_mutation_state`, `retrieval_overrides`, `rationale` |
+| `interest_profiles` | `tag_preferences`, `modality_preferences`, `skipped_modalities`, `engagement_quality_avg` |
+
+**Expanded scope rationale:** User asked to see the full entity model before Phase 3 coding. Original scope covered only Phase 3 telemetry tables; expanded to include all core entities so the schema is ready for Phase 2 (roadmaps) and Phase 4 (interest profiles) without additional migrations.
+
+> ⚠️ **Integration Risk:** `clinical_tasks` rows should be seeded from Chroma enriched metadata — coordinate with A-HOZ-09 migration script.
 
 ---
 
