@@ -17,7 +17,7 @@ from services.assessment.core import (
 )
 from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
 from services.shared.logging import get_logger
-from services.shared.schemas import AssessGatewayResponse, FinalRoadmap, LegacyRAGRecommendation
+from services.shared.schemas import AssessGatewayResponse, FinalRoadmap, LegacyRAGRecommendation, RetrievalQuery
 from services.assessment.router import router as assessment_router
 from services.knowledge_base.router import router as kb_router
 from services.architect.router import router as architect_router
@@ -168,7 +168,9 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
         query_text = build_retrieval_query_text(user_context, answers_for_query)
 
         candidate_tasks = _kb.retrieve_tasks(
-            user_context, query_text=query_text, top_k=5
+            RetrievalQuery(query_text=query_text),
+            user_context,
+            top_k=5,
         )
         roadmap = run_architect_pipeline(user_context, candidate_tasks, top_n=5, locale=req.locale)
 

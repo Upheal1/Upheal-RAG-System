@@ -5,10 +5,13 @@ from typing import Any, Dict, List, Optional
 
 from services.shared.logging import get_logger
 from services.shared.pathing import repo_root
-from services.shared.schemas import ClinicalTask, UserContext
+from services.shared.schemas import ClinicalTask, RetrievalQuery, UserContext
 
 
 logger = get_logger(__name__)
+
+
+DIGITAL_DETOX_TAGS = {"digital-detox", "screen-time", "phone-addiction", "social-media"}
 
 
 def _difficulty_from_metadata(meta: Dict[str, Any]) -> int:
@@ -49,30 +52,75 @@ def _symptom_tags_from_metadata(
     return list(fallback)
 
 
-def _build_where_filter(user_context: UserContext) -> Optional[Dict[str, Any]]:
+def _safety_risk_from_metadata(meta: Dict[str, Any]) -> bool:
+    raw = meta.get("safety_risk")
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, str):
+        return raw.lower() in ("true", "1", "yes")
+    return False
+
+
+def _utility_score_from_metadata(meta: Dict[str, Any]) -> float:
+    raw = meta.get("utility_score")
+    if raw is None:
+        return 0.5
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.5
+
+
+def _build_where_filter(
+    user_context: UserContext,
+    query: RetrievalQuery,
+) -> Optional[Dict[str, Any]]:
     """
-    Metadata from enriched index uses `tag_primary` (anxiety | depression | general).
-    Omit filter if we cannot derive tags or only suicidal/general.
+    Build ChromaDB metadata filter from UserContext form_scores (tag_primary mapping)
+    and RetrievalQuery.max_difficulty ceiling.
+    Omit tag filter if only suicidal/general scores are present.
     """
-    tags: List[str] = []
+    tag_clauses: List[Dict[str, Any]] = []
+
     for k, v in user_context.form_scores.items():
         if k in ("general", "suicidal"):
             continue
         if int(v) > 0 and k in ("anxiety", "depression"):
-            tags.append(k)
-    if not tags:
+            tag_clauses.append({"tag_primary": k})
+
+    if tag_clauses:
+        tag_clauses.append({"tag_primary": "general"})
+
+    if query.max_difficulty is not None:
+        difficulty_clause: Dict[str, Any] = {"difficulty": {"$lte": query.max_difficulty}}
+        if not tag_clauses:
+            return difficulty_clause
+        return {"$and": [{"$or": tag_clauses}, difficulty_clause]}
+
+    if not tag_clauses:
         return None
-    or_clauses = [{"tag_primary": t} for t in tags]
-    or_clauses.append({"tag_primary": "general"})
-    if len(or_clauses) == 1:
-        return or_clauses[0]
-    return {"$or": or_clauses}
+    if len(tag_clauses) == 1:
+        return tag_clauses[0]
+    return {"$or": tag_clauses}
+
+
+def _build_where_document_filter(query_text: str) -> Optional[Dict[str, Any]]:
+    if not query_text:
+        return None
+    search_terms = [t for t in query_text.split() if len(t) > 3]
+    if not search_terms:
+        return None
+    return {"$contains": search_terms[0].lower()}
 
 
 class ChromaKnowledgeBase:
     """
     Chroma adapter: semantic search plus optional metadata filter when using
     an enriched index (see `services/ingestion/build_index.py`).
+
+    Uses HNSW with cosine similarity for ANN retrieval.  The collection is
+    created / opened with explicit metadata so that `hnsw:space` is always
+    ``cosine`` regardless of the client version.
     """
 
     def __init__(
@@ -81,6 +129,9 @@ class ChromaKnowledgeBase:
         vector_db_path: Optional[str] = None,
         collection_name: Optional[str] = None,
         model_name: str = "all-mpnet-base-v2",
+        hnsw_ef_search: int = 128,
+        hnsw_ef_construction: int = 200,
+        hnsw_m: int = 16,
     ):
         root = repo_root()
         self.vector_db_path = vector_db_path or os.environ.get(
@@ -90,6 +141,9 @@ class ChromaKnowledgeBase:
             "UPHEAL_CHROMA_COLLECTION", "clinical_rag_mini"
         )
         self.model_name = model_name
+        self.hnsw_ef_search = hnsw_ef_search
+        self.hnsw_ef_construction = hnsw_ef_construction
+        self.hnsw_m = hnsw_m
 
         self._model = None
         self._client = None
@@ -109,12 +163,13 @@ class ChromaKnowledgeBase:
         logger.info("Loading vector DB: %s", self.vector_db_path)
         self._model = SentenceTransformer(self.model_name)
 
-        vector_db_path = self.vector_db_path
+        vector_db_path = str(self.vector_db_path)
         if vector_db_path.startswith("http://") or vector_db_path.startswith("https://"):
             logger.info("Using HTTP ChromaDB client: %s", vector_db_path)
             self._client = chromadb.HttpClient(host=vector_db_path)
         else:
             self._client = chromadb.PersistentClient(path=vector_db_path)
+
         self._collection = self._client.get_collection(name=self.collection_name)
 
     def is_healthy(self) -> bool:
@@ -137,36 +192,29 @@ class ChromaKnowledgeBase:
 
     def retrieve_tasks(
         self,
+        query: RetrievalQuery,
         user_context: UserContext,
         *,
-        query_text: Optional[str] = None,
         top_k: int = 5,
     ) -> List[ClinicalTask]:
         self._ensure_loaded()
         if self._collection is None or self._model is None:
             return []
 
-        clinical_tags: List[str] = [
-            k for k in user_context.form_scores.keys() if isinstance(k, str)
-        ]
-        if not clinical_tags:
-            clinical_tags = ["general"]
-
-        query_text = query_text or " ".join(clinical_tags)
+        query_text = query.query_text or " ".join(query.symptom_keywords)
+        if not query_text:
+            query_text = " ".join(
+                k for k in user_context.form_scores.keys()
+                if k not in ("general", "suicidal")
+            ) or "general wellness"
 
         query_embedding = self._model.encode([query_text])
-        where = _build_where_filter(user_context)
-        n_fetch = min(max(top_k * 4, 15), 50)  # Tuned n_fetch slightly higher for better reranking
-
-        where_document = None
-        if query_text:
-            # Build basic where_document containing top keyword
-            search_terms = [t for t in query_text.split() if len(t) > 3]
-            if search_terms:
-                where_document = {"$contains": search_terms[0].lower()}
+        where = _build_where_filter(user_context, query)
+        n_fetch = min(max(top_k * 4, 15), 50)
+        where_document = _build_where_document_filter(query_text)
 
         try:
-            kwargs = {
+            kwargs: Dict[str, Any] = {
                 "query_embeddings": query_embedding.tolist(),
                 "n_results": n_fetch,
                 "include": ["documents", "metadatas", "distances"],
@@ -175,7 +223,7 @@ class ChromaKnowledgeBase:
                 kwargs["where"] = where
             if where_document:
                 kwargs["where_document"] = where_document
-                
+
             results = self._collection.query(**kwargs)
         except Exception as e:
             logger.debug("Chroma query with where failed (%s), retrying without filter", e)
@@ -201,9 +249,11 @@ class ChromaKnowledgeBase:
             header = meta_dict.get("header")
             source_reference = str(meta_dict.get("source_file", "Unknown"))
             pages = meta_dict.get("page_numbers")
-            symptom_tags = _symptom_tags_from_metadata(meta_dict, clinical_tags)
+            symptom_tags = _symptom_tags_from_metadata(meta_dict, query.symptom_keywords)
             difficulty = _difficulty_from_metadata(meta_dict)
             xp_reward = _xp_from_metadata(meta_dict)
+            safety_risk = _safety_risk_from_metadata(meta_dict)
+            utility_score = _utility_score_from_metadata(meta_dict)
 
             chunk_id = id_row[i] if i < len(id_row) else f"kb_task_{i}"
 
@@ -214,6 +264,8 @@ class ChromaKnowledgeBase:
                     symptom_tags=symptom_tags,
                     difficulty=difficulty,
                     xp_reward=xp_reward,
+                    safety_risk=safety_risk,
+                    utility_score=utility_score,
                     source_reference=source_reference,
                     metadata={
                         "similarity": float(similarity01),
@@ -225,4 +277,20 @@ class ChromaKnowledgeBase:
                 )
             )
 
+        if query.boost_digital_detox:
+            tasks = self._apply_digital_detox_boost(tasks)
+
         return tasks[:top_k]
+
+    def _apply_digital_detox_boost(self, tasks: List[ClinicalTask]) -> List[ClinicalTask]:
+        detox_tasks: List[ClinicalTask] = []
+        non_detox_tasks: List[ClinicalTask] = []
+
+        for task in tasks:
+            task_tags_lower = {t.lower() for t in task.symptom_tags}
+            if task_tags_lower & DIGITAL_DETOX_TAGS:
+                detox_tasks.append(task)
+            else:
+                non_detox_tasks.append(task)
+
+        return detox_tasks + non_detox_tasks
