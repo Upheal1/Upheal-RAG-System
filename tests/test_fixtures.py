@@ -26,26 +26,27 @@ def test_xp_reward_non_negative() -> None:
         assert task.xp_reward >= 0
 
 
-def test_safety_risk_in_metadata() -> None:
+def test_safety_risk_top_level_field() -> None:
     for task in SAMPLE_TASKS:
-        assert "safety_risk" in task.metadata
+        assert hasattr(task, "safety_risk")
+        assert isinstance(task.safety_risk, bool)
 
 
-def test_utility_score_in_metadata() -> None:
+def test_utility_score_top_level_field() -> None:
     for task in SAMPLE_TASKS:
-        assert "utility_score" in task.metadata
+        assert hasattr(task, "utility_score")
+        assert isinstance(task.utility_score, float)
+        assert 0.0 <= task.utility_score <= 1.0
 
 
 def test_safety_edge_case_exists() -> None:
-    safety_tasks = [
-        t for t in SAFETY_EDGE_CASE_TASKS if t.metadata.get("safety_risk") is True
-    ]
+    safety_tasks = [t for t in SAFETY_EDGE_CASE_TASKS if t.safety_risk is True]
     assert len(safety_tasks) >= 1
 
 
 def test_crisis_task_zero_xp() -> None:
     for task in SAFETY_EDGE_CASE_TASKS:
-        if task.metadata.get("safety_risk"):
+        if task.safety_risk:
             assert task.xp_reward == 0
 
 
