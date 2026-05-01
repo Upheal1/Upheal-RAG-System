@@ -34,19 +34,6 @@ class ClinicalTask(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class RetrievalQuery(BaseModel):
-    """
-    Query specification for knowledge base retrieval.
-    Used by chroma_adapter.retrieve_tasks() to apply semantic query,
-    symptom filters, difficulty ceiling, and optional digital detox boost.
-    """
-
-    query_text: str
-    symptom_keywords: List[str] = Field(default_factory=list)
-    max_difficulty: Optional[int] = Field(default=None, ge=1, le=5)
-    boost_digital_detox: bool = False
-
-
 class UserContext(BaseModel):
     user_id: str
     timestamp: str
