@@ -108,7 +108,13 @@ class ChromaKnowledgeBase:
 
         logger.info("Loading vector DB: %s", self.vector_db_path)
         self._model = SentenceTransformer(self.model_name)
-        self._client = chromadb.PersistentClient(path=self.vector_db_path)
+
+        vector_db_path = self.vector_db_path
+        if vector_db_path.startswith("http://") or vector_db_path.startswith("https://"):
+            logger.info("Using HTTP ChromaDB client: %s", vector_db_path)
+            self._client = chromadb.HttpClient(host=vector_db_path)
+        else:
+            self._client = chromadb.PersistentClient(path=vector_db_path)
         self._collection = self._client.get_collection(name=self.collection_name)
 
     def is_healthy(self) -> bool:
