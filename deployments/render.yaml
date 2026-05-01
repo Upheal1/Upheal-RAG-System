@@ -1,0 +1,38 @@
+{
+  "regions": ["egyion:1"],
+  "services": [
+    {
+      "serviceType": "web",
+      "name": "upheal-gateway",
+      "repo": "https://github.com/Upheal1/Upheal-RAG-System",
+      "branch": "main",
+      "dockerfile": "deployments/Dockerfile",
+      "healthCheckPath": "/health",
+      "autoDeploy": true,
+      "envVars": [
+        {
+          "key": "UPHEAL_CHROMA_PATH",
+          "value": "${CHROMA_URL}"
+        },
+        {
+          "key": "OLLAMA_BASE_URL",
+          "value": "${OLLAMA_URL}"
+        },
+        {
+          "key": "OLLAMA_MODEL",
+          "value": "qwen2.5:7b"
+        },
+        {
+          "key": "OPENAI_API_KEY",
+          "value": "${OPENAI_API_KEY}",
+          "sync": false
+        },
+        {
+          "key": "GOOGLE_API_KEY",
+          "value": "${GOOGLE_API_KEY}",
+          "sync": false
+        }
+      ]
+    }
+  ]
+}

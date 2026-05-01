@@ -1,0 +1,46 @@
+{
+  "$schema": "https://railway.app/schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "deployments/Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  },
+  "services": [
+    {
+      "name": "gateway",
+      "source": ".",
+      "dockerfile": "deployments/Dockerfile",
+      "port": 8000,
+      "environment": [
+        {
+          "key": "UPHEAL_CHROMA_PATH",
+          "value": "http://chromadb:8000"
+        },
+        {
+          "key": "OLLAMA_BASE_URL",
+          "value": "${OLLAMA_URL}"
+        }
+      ]
+    },
+    {
+      "name": "chromadb",
+      "image": "chromadb/chroma:latest",
+      "port": 8000,
+      "persistentDirectory": "/chroma/chroma",
+      "environment": [
+        {
+          "key": "IS_PERSISTENT",
+          "value": "TRUE"
+        },
+        {
+          "key": "ANONYMIZED_TELEMETRY",
+          "value": "FALSE"
+        }
+      ]
+    }
+  ]
+}

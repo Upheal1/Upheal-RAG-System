@@ -18,9 +18,9 @@ Tracks progress on Approach A (Foundation-First) implementation tasks.
 | A-HOZ-01 | Pydantic schemas | ✅ Done | - | In `main` (commit 362f70e) |
 | A-HOZ-02 | Structured JSON logger | ✅ Done | [#5](https://github.com/Upheal1/Upheal-RAG-System/pull/5) | |
 | A-HOZ-03 | PDF extraction and noise filter | ✅ Done | [#7](https://github.com/Upheal1/Upheal-RAG-System/pull/7) | |
-| A-HOZ-04 | Semantic chunker (15% overlap) | 🔲 Pending | - | |
-| A-HOZ-05 | Formatter Agent (LLM integration) | 🔲 Pending | - | |
-| A-HOZ-06 | **GATE** ChromaDB hybrid adapter | 🔲 Pending | - | Unlocks Yahya's real retrieval |
+| A-HOZ-04 | Semantic chunker (15% overlap) | ✅ Done | - | |
+| A-HOZ-05 | Formatter Agent (LLM integration) | ✅ Done | - | |
+| A-HOZ-06 | **GATE** ChromaDB hybrid adapter | ✅ Done | - | Unlocks Yahya's real retrieval |
 | A-HOZ-07 | Integrity check script | 🔲 Pending | - | |
 | A-HOZ-08 | GET /health for knowledge base | 🔲 Pending | - | |
 | A-HOZ-09 | Initial clinical PDF migration script | 🔲 Pending | - | |

@@ -10,11 +10,92 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Completed]
 
+### A-HOZ-10: Supabase Schema (Expanded)
+
+**Branch:** `A-HOZ-06-chroma-adapter`
+**Status:** ✅ Done
+
+**Files Changed:**
+- `supabase/migrations/001_create_interaction_logs.sql`
+- `supabase/migrations/002_create_roadmap_mutations.sql`
+- `supabase/migrations/003_create_users_and_profiles.sql`
+- `supabase/migrations/004_create_clinical_tasks.sql`
+- `supabase/migrations/005_create_roadmaps_and_tasks.sql`
+- `supabase/migrations/006_create_assessment_responses.sql`
+- `supabase/migrations/007_create_interest_profiles.sql`
+- `supabase/migrations/008_add_foreign_keys.sql`
+- `supabase/README.md`
+
+**Schema Implemented:**
+- `users` — auth baseline
+- `user_profiles` — GAD-7/PHQ-9 scores, screen time, user_level, modality_weights, tag_boosts
+- `assessment_responses` — raw form submissions (EN/AR)
+- `clinical_tasks` — canonical task definitions synced with Chroma metadata
+- `roadmaps` / `roadmap_tasks` — per-generation roadmap with validity window
+- `interaction_logs` — Phase 3 telemetry (VIEWED/STARTED/COMPLETED/SKIPPED)
+- `roadmap_mutations` — Director mutation audit trail
+- `interest_profiles` — Director-evolved tag/modality preferences
+
+**Foreign keys:** `interaction_logs` and `roadmap_mutations` now reference `users` and `clinical_tasks`.
+
+---
+
+### A-HOZ-06: ChromaDB Hybrid Adapter ⭐ GATE
+
+**Branch:** `A-HOZ-06-chroma-adapter`
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/knowledge_base/chroma_adapter.py` - Full hybrid ChromaDB adapter
+- `services/shared/schemas.py` - Added `RetrievalQuery` schema, updated `ClinicalTask` with top-level `safety_risk`/`utility_score`
+- `services/gateway/main.py` - Updated `retrieve_tasks()` call site to use `RetrievalQuery`
+- `tests/test_chroma_adapter.py` - 27 unit tests covering all new logic
+- `tests/integration/test_chroma_adapter_real.py` - 10 integration tests against real ChromaDB collection
+- `tests/fixtures/clinical_tasks.py` - Promoted `safety_risk`/`utility_score` to top-level fields
+
+**Features Implemented:**
+- `RetrievalQuery` schema with `query_text`, `symptom_keywords`, `max_difficulty`, `boost_digital_detox`
+- `ClinicalTask.safety_risk` and `ClinicalTask.utility_score` promoted from `metadata` to top-level fields
+- `ChromaKnowledgeBase.retrieve_tasks(query, user_context, top_k)` refactored to accept `RetrievalQuery`
+- `max_difficulty` filter applied via ChromaDB `where` clause (`$lte`)
+- `boost_digital_detox` reranks tasks with digital-detox tags to the front
+- HNSW configuration: explicit `cosine` space, tunable `ef_search`, `ef_construction`, `m` params
+- `get_or_create_collection` with metadata for consistent HNSW settings
+- `_safety_risk_from_metadata()` and `_utility_score_from_metadata()` helper extractors
+- Comprehensive unit + integration test suite
+
+**Testing:** 45 unit tests + 10 integration tests passing
+
+---
+
+### A-HOZ-05: Formatter Agent
+
+**Branch:** `A-HOZ-05-formatter-agent`
+**PR:** [#19](https://github.com/Upheal1/Upheal-RAG-System/pull/19)
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/ingestion/formatter_agent.py` - LLM integration implementation
+- `tests/test_formatter_agent.py` - 26 new tests
+- `.env.example` - Added LLM API key configuration
+
+**Features Implemented:**
+- LLM integration (OpenAI GPT / Google Gemini via env vars)
+- Per-chunk labeling: difficulty (1-5), xp_reward, symptom_tags, safety_risk
+- Output validates against ClinicalTask schema
+- Crisis keywords detection (suicide, self-harm, etc.) sets safety_risk = True
+- Token/cost guard with batch size cap (max 25)
+- Fallback keyword-based formatter when no LLM configured
+
+**Testing:** 138 tests passing (all tests)
+
+---
+
 ### A-HOZ-04: Semantic Chunker
 
-**Branch:** `A-HOZ-04-semantic-chunker`  
-**PR:** [#8](https://github.com/Upheal1/Upheal-RAG-System/pull/8)  
-**Status:** ✅ Done (pending merge)
+**Branch:** `A-HOZ-04-semantic-chunker`
+**PR:** [#8](https://github.com/Upheal1/Upheal-RAG-System/pull/8)
+**Status:** ✅ Done
 
 **Files Changed:**
 - `services/ingestion/semantic_chunker.py` - Semantic chunking implementation
@@ -34,8 +115,8 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ### A-HOZ-03: PDF Extraction and Noise Filter
 
-**Branch:** `A-HOZ-03-pdf-extraction`  
-**PR:** [#7](https://github.com/Upheal1/Upheal-RAG-System/pull/7)  
+**Branch:** `A-HOZ-03-pdf-extraction`
+**PR:** [#7](https://github.com/Upheal1/Upheal-RAG-System/pull/7)
 **Status:** ✅ Done (pending merge)
 
 **Files Changed:**
@@ -57,8 +138,8 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ### A-HOZ-02: Structured JSON Logger
 
-**Branch:** `A-HOZ-02-logging`  
-**PR:** [#5](https://github.com/Upheal1/Upheal-RAG-System/pull/5)  
+**Branch:** `A-HOZ-02-logging`
+**PR:** [#5](https://github.com/Upheal1/Upheal-RAG-System/pull/5)
 **Status:** ✅ Done (merged to staging)
 
 **Files Changed:**
@@ -78,7 +159,7 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ### A-HOZ-01: Pydantic Schemas
 
-**Status:** ✅ Done (in `main`)  
+**Status:** ✅ Done (in `main`)
 **Commit:** 362f70e
 
 **Files:**
@@ -88,48 +169,23 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## Pending Tasks
 
-### A-HOZ-05: Formatter Agent
-**File:** `services/ingestion/formatter_agent.py`  
-**Depends On:** A-HOZ-04  
-**Status:** 🔲 Not Started
-
-Requirements:
-- LLM integration (Gemini/GPT)
-- Per-chunk labeling: difficulty, xp_reward, symptom_tags, safety_risk
-- Output validates against ClinicalTask schema
-- Crisis keywords set safety_risk = True
-- Token/cost guard (batch size cap)
-
-### A-HOZ-06: ChromaDB Hybrid Adapter ⭐ GATE
-**File:** `services/knowledge_base/chroma_adapter.py`  
-**Depends On:** A-HOZ-01, A-HOZ-05  
-**Status:** 🔲 Not Started
-
-Requirements:
-- Persistent Chroma client with HNSW
-- Hybrid where/where_document queries
-- Maps metadata to ClinicalTask
-- Integration test returning ≥5 ClinicalTask rows
-
-**Note:** This gate unlocks Yahya's real retrieval integration.
-
 ### A-HOZ-07: Integrity Check Script
-**File:** `scripts/verify_integrity.py`  
-**Depends On:** A-HOZ-06  
+**File:** `scripts/verify_integrity.py`
+**Depends On:** A-HOZ-06
 **Status:** 🔲 Not Started
 
 ### A-HOZ-08: GET /health
-**File:** `services/knowledge_base/router.py`  
-**Depends On:** A-HOZ-06  
+**File:** `services/knowledge_base/router.py`
+**Depends On:** A-HOZ-06
 **Status:** 🔲 Not Started
 
 ### A-HOZ-09: Initial PDF Migration Script
-**File:** `scripts/migrate_initial_clinical_library.py`  
-**Depends On:** A-HOZ-04, A-HOZ-05, A-HOZ-06  
+**File:** `scripts/migrate_initial_clinical_library.py`
+**Depends On:** A-HOZ-04, A-HOZ-05, A-HOZ-06
 **Status:** 🔲 Not Started
 
 ### A-HOZ-10: Supabase Migrations
-**Files:** `supabase/migrations/`  
+**Files:** `supabase/migrations/`
 **Status:** 🔲 Not Started
 
 Tables:
@@ -137,8 +193,8 @@ Tables:
 - `roadmap_mutations` - Director mutation audit trail
 
 ### A-HOZ-11: State Manager
-**File:** `services/shared/state.py`  
-**Depends On:** A-HOZ-10  
+**File:** `services/shared/state.py`
+**Depends On:** A-HOZ-10
 **Status:** 🔲 Not Started
 
 Requirements:
