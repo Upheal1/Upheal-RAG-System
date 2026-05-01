@@ -190,6 +190,20 @@ class ChromaKnowledgeBase:
         except Exception:
             return 0
 
+    def get_collection_metadata(self) -> Dict[str, Any]:
+        """Return the collection-level metadata dict (may include last_ingestion)."""
+        self._ensure_loaded()
+        if self._collection is None:
+            return {}
+        try:
+            # ChromaDB collections expose metadata via the attribute or get_model.
+            meta = getattr(self._collection, "metadata", None)
+            if isinstance(meta, dict):
+                return dict(meta)
+            return {}
+        except Exception:
+            return {}
+
     def retrieve_tasks(
         self,
         query: RetrievalQuery,
