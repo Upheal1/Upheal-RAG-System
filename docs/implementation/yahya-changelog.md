@@ -60,6 +60,19 @@ Features:
 - Gamifier pass-through hook (ready for A-YAH-06)
 - 21 unit tests
 
+### A-YAH-10: POST /api/roadmap
+**Status:** ✅ Done  
+**Files:**
+- `services/gateway/schemas.py` - RoadmapRequest, RoadmapResponse
+- `services/gateway/main.py` - Added POST /api/roadmap endpoint
+
+Features:
+- Clean roadmap response without legacy clinical fields
+- Separate from POST /api/assess (which includes legacy Flutter fields)
+- Contract snapshot test prevents accidental field removal
+- Supports top_n parameter (1-10)
+- 16 unit tests
+
 ---
 
 ## Pending Tasks
@@ -103,11 +116,6 @@ Requirements:
 - Quick Win: difficulty=1, highest XP
 - Middle: ascending difficulty 1→3
 - Boss Task: highest difficulty, highest therapeutic impact
-
-### A-YAH-10: POST /api/roadmap
-**File:** `services/gateway/main.py`  
-**Depends On:** A-YAH-09  
-**Status:** 🔲 Ready (A-YAH-09 done)
 
 ---
 

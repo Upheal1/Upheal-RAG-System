@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from services.gateway.orchestrator import run_assessment_chain
+from services.gateway.schemas import RoadmapRequest, RoadmapResponse
 from services.shared.logging import get_logger
 from services.shared.schemas import AssessGatewayResponse
 from services.assessment.router import router as assessment_router
@@ -97,6 +98,50 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
     except Exception as e:
         logger.exception("Assessment failed")
         raise HTTPException(status_code=500, detail=f"Assessment failed: {e}")
+
+
+@app.post("/api/roadmap", response_model=RoadmapResponse, tags=["roadmap"])
+def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
+    """
+    Generate a personalized clinical roadmap.
+
+    Returns a clean `FinalRoadmap` response without legacy clinical fields.
+    This is the modern API contract for new clients.
+    """
+    try:
+        req = RoadmapRequest.model_validate(payload)
+        raw_payload: Any = req.raw_forms_json
+        if req.answers is not None:
+            if isinstance(raw_payload, dict):
+                raw_payload = {**raw_payload, "answers": req.answers}
+            else:
+                raw_payload = {"answers": req.answers}
+
+        chain_response = run_assessment_chain(
+            user_id=req.user_id,
+            raw_payload=raw_payload,
+            screen_time_minutes=req.screen_time_minutes,
+            locale=req.locale,
+            session_id=req.session_id,
+            answers=req.answers,
+            top_n=req.top_n,
+        )
+
+        roadmap = RoadmapResponse(
+            user_id=chain_response.user_id,
+            overview_paragraph=chain_response.overview_paragraph,
+            suggested_tasks=chain_response.suggested_tasks[: req.top_n],
+            safety_status=chain_response.safety_status,
+            next_checkup_days=chain_response.next_checkup_days,
+            generated_at=chain_response.timestamp,
+            session_id=chain_response.session_id,
+        )
+        return roadmap
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Roadmap generation failed")
+        raise HTTPException(status_code=500, detail=f"Roadmap generation failed: {e}")
 
 
 # Domain routers (primarily for /health endpoints).
