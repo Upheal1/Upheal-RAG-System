@@ -24,6 +24,7 @@ from services.auditor.schemas import (
     EmergencyPayload,
     HotlineResource,
 )
+from services.auditor.sentiment import SentimentClassifier
 from services.shared.schemas import ClinicalTask, FinalRoadmap
 
 
@@ -32,6 +33,7 @@ class ClinicalAuditor:
 
     def __init__(self, locale: str = "en") -> None:
         self._locale = resolve_locale(locale)
+        self._sentiment = SentimentClassifier(locale=self._locale)
 
     # ------------------------------------------------------------------
     # Crisis detection
@@ -89,6 +91,21 @@ class ClinicalAuditor:
     # Primary audit entry point — works on FinalRoadmap + raw tasks
     # ------------------------------------------------------------------
 
+    def _compute_frustration(
+        self,
+        roadmap: FinalRoadmap,
+    ) -> tuple[bool, float, bool]:
+        """Compute frustration score from overview paragraph.
+
+        Returns:
+            tuple: (frustration_detected, frustration_score, amber_advisory)
+        """
+        text = roadmap.overview_paragraph or ""
+        score = self._sentiment.classify(text)
+        frustration_detected = score > 0.0
+        amber_advisory = self._sentiment.is_amber_advisory(score)
+        return frustration_detected, score, amber_advisory
+
     def audit(
         self,
         roadmap: FinalRoadmap,
@@ -102,8 +119,16 @@ class ClinicalAuditor:
         2. Crisis keywords in text → RED
         3. Robotic tone → YELLOW
         4. Otherwise → GREEN
+
+        Frustration detection runs on all paths but does NOT override
+        RED/YELLOW status - it's added as additional metadata.
         """
         text = (roadmap.overview_paragraph or "").lower()
+
+        # --- compute frustration (runs on all paths) ---
+        frustration_detected, frustration_score, amber_advisory = (
+            self._compute_frustration(roadmap)
+        )
 
         # --- scan tasks for safety_risk flag ---
         if tasks is not None:
@@ -123,9 +148,13 @@ class ClinicalAuditor:
                     crisis_keywords_found=matched_kw,
                     safety_risk_task_found=True,
                     safety_risk_task_ids=risky_ids,
+                    frustration_detected=frustration_detected,
+                    frustration_score=frustration_score,
                 ),
                 overview_paragraph=GUIDANCE_MESSAGES[self._locale]["red"],
                 task_ids=[t.task_id for t in tasks] if tasks else [],
+                frustration_score=frustration_score,
+                amber_advisory=amber_advisory,
             )
 
         # --- crisis keyword detection ---
@@ -138,9 +167,13 @@ class ClinicalAuditor:
                 flags=AuditFlags(
                     crisis_detected=True,
                     crisis_keywords_found=matched_kw,
+                    frustration_detected=frustration_detected,
+                    frustration_score=frustration_score,
                 ),
                 overview_paragraph=GUIDANCE_MESSAGES[self._locale]["red"],
                 task_ids=[t.task_id for t in roadmap.suggested_tasks],
+                frustration_score=frustration_score,
+                amber_advisory=amber_advisory,
             )
 
         # --- robotic tone ---
@@ -148,18 +181,29 @@ class ClinicalAuditor:
             return AuditResult(
                 safety_status="YELLOW",
                 next_checkup_days=7,
-                flags=AuditFlags(robotic_tone_detected=True),
+                flags=AuditFlags(
+                    robotic_tone_detected=True,
+                    frustration_detected=frustration_detected,
+                    frustration_score=frustration_score,
+                ),
                 overview_paragraph=GUIDANCE_MESSAGES[self._locale]["yellow"],
                 task_ids=[t.task_id for t in roadmap.suggested_tasks],
+                frustration_score=frustration_score,
+                amber_advisory=amber_advisory,
             )
 
         # --- safe ---
         return AuditResult(
             safety_status="GREEN",
             next_checkup_days=14,
-            flags=AuditFlags(),
+            flags=AuditFlags(
+                frustration_detected=frustration_detected,
+                frustration_score=frustration_score,
+            ),
             overview_paragraph=roadmap.overview_paragraph,
             task_ids=[t.task_id for t in roadmap.suggested_tasks],
+            frustration_score=frustration_score,
+            amber_advisory=amber_advisory,
         )
 
     # ------------------------------------------------------------------
