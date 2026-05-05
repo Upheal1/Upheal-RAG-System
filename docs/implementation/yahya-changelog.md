@@ -6,7 +6,11 @@ Changelog for Yahya's implementation tasks (Phase 2-4 - The Guild, Director, Sel
 
 ## [Unreleased]
 
-All tasks pending until A-HOZ-06 gate is cleared.
+### A-YAH-08: Arabic + English Localisation Constants
+**Status:** ✅ Done (absorbed into A-YAH-07)  
+**Files:** `services/auditor/i18n.py`
+
+The i18n constants for crisis keywords, hotline data, and guidance messages were implemented as part of A-YAH-07. No separate module needed.
 
 ---
 
@@ -18,32 +22,47 @@ All tasks pending until A-HOZ-06 gate is cleared.
 
 ### A-YAH-02: Profiler Agent
 **Status:** ✅ Done  
-**Files:** 
+**Files:**
 - `services/assessment/core.py` - Sigmoid R_app, form scoring, Bayesian blend
 - `services/assessment/router.py`
 
+### A-YAH-03: ClinicalTask Fixtures
+**Status:** ✅ Done  
+**File:** `tests/fixtures/clinical_tasks.py`
+
 ### A-YAH-07: Clinical Auditor
 **Status:** ✅ Done  
-**File:** `services/architect/auditor.py`
+**Files:**
+- `services/auditor/core.py` - ClinicalAuditor class
+- `services/auditor/i18n.py` - EN/AR crisis keywords, messages, hotlines
+- `services/auditor/schemas.py` - AuditResult, EmergencyPayload, etc.
+- `services/auditor/router.py` - FastAPI router
 
 Features:
 - Crisis keywords (English + Arabic)
 - Robotic tone detection
 - RED/YELLOW/GREEN safety status
+- safety_risk=True task override
+- Structured emergency payload with hotlines
+- 61 unit tests
+
+### A-YAH-09: Full Orchestration Chain
+**Status:** ✅ Done  
+**Files:**
+- `services/gateway/orchestrator.py` - Chain orchestration, error handling, stage logging
+- `services/gateway/main.py` - Refactored to use orchestrator
+- `services/architect/pipeline.py` - Added _sequence_tasks() hook
+
+Features:
+- Profiler → Architect → Auditor chain
+- Per-stage structured logging with timing
+- Safe fallback on any stage failure (never exposes stack traces)
+- Gamifier pass-through hook (ready for A-YAH-06)
+- 21 unit tests
 
 ---
 
 ## Pending Tasks
-
-### A-YAH-03: ClinicalTask Fixtures
-**File:** `tests/fixtures/clinical_tasks.py`  
-**Status:** 🔲 Not Started (can start immediately)
-
-Requirements:
-- ≥10 realistic ClinicalTask instances
-- Difficulty 1-5 coverage
-- At least one `safety_risk=True` for auditor tests
-- Importable as `from tests.fixtures.clinical_tasks import SAMPLE_TASKS`
 
 ### A-YAH-04: Knowledge Retrieval (Real Adapter)
 **File:** `services/architect/pipeline.py`  
@@ -73,7 +92,7 @@ Requirements:
 ### A-YAH-06: Gamifier Agent
 **File:** `services/architect/logic.py`  
 **Assignee:** Ahmed  
-**Status:** 🔲 Not Started (can start immediately)
+**Status:** 🔲 Not Started
 
 XP Formula:
 ```
@@ -85,27 +104,10 @@ Requirements:
 - Middle: ascending difficulty 1→3
 - Boss Task: highest difficulty, highest therapeutic impact
 
-### A-YAH-08: i18n Constants
-**File:** `services/architect/i18n.py`  
-**Status:** 🔲 Not Started
-
-Requirements:
-- Centralize crisis strings
-- Hotline labels (EN/AR)
-- Auditor messages
-- At least one test with locale="ar"
-
-### A-YAH-09: Full Orchestration Chain
-**File:** `services/gateway/main.py`  
-**Depends On:** A-YAH-05, A-YAH-06, A-YAH-07  
-**Status:** 🔲 Blocked
-
-Chain: Profiler → Architect → Gamifier → Auditor
-
 ### A-YAH-10: POST /api/roadmap
 **File:** `services/gateway/main.py`  
 **Depends On:** A-YAH-09  
-**Status:** 🔲 Blocked
+**Status:** 🔲 Ready (A-YAH-09 done)
 
 ---
 
