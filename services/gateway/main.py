@@ -17,11 +17,17 @@ from services.assessment.core import (
 )
 from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
 from services.shared.logging import get_logger
-from services.shared.schemas import AssessGatewayResponse, FinalRoadmap, LegacyRAGRecommendation, RetrievalQuery
+from services.shared.schemas import (
+    AssessGatewayResponse,
+    FinalRoadmap,
+    LegacyRAGRecommendation,
+    RetrievalQuery,
+)
 from services.assessment.router import router as assessment_router
 from services.knowledge_base.router import router as kb_router
 from services.architect.router import router as architect_router
 from services.ingestion.router import router as ingestion_router
+from services.auditor.router import router as auditor_router
 
 
 logger = get_logger(__name__)
@@ -49,7 +55,9 @@ class AssessRequest(BaseModel):
     user_id: str
     session_id: Optional[str] = None
     locale: str = "en"
-    raw_forms_json: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(default_factory=dict)
+    raw_forms_json: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(
+        default_factory=dict
+    )
     screen_time_minutes: float = 0.0
     answers: Optional[Dict[str, int]] = None
 
@@ -117,13 +125,21 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
             if answers:
                 gad_total = gad7_raw_total(answers)
                 phq_total = phq9_raw_total(answers)
-                anxiety_probability = sigmoid_probability_from_scale_total(gad_total, 21, k=0.05)
-                depression_probability = sigmoid_probability_from_scale_total(phq_total, 27, k=0.05)
+                anxiety_probability = sigmoid_probability_from_scale_total(
+                    gad_total, 21, k=0.05
+                )
+                depression_probability = sigmoid_probability_from_scale_total(
+                    phq_total, 27, k=0.05
+                )
                 severity = {
                     "anxiety": severity_label_from_gad7_total(gad_total),
                     "depression": severity_label_from_phq9_total(phq_total),
                 }
-                comorbidity = "true" if (anxiety_probability > 0.5 and depression_probability > 0.5) else "false"
+                comorbidity = (
+                    "true"
+                    if (anxiety_probability > 0.5 and depression_probability > 0.5)
+                    else "false"
+                )
             else:
                 gad_total = 0
                 phq_total = 0
@@ -172,7 +188,9 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
             user_context,
             top_k=5,
         )
-        roadmap = run_architect_pipeline(user_context, candidate_tasks, top_n=5, locale=req.locale)
+        roadmap = run_architect_pipeline(
+            user_context, candidate_tasks, top_n=5, locale=req.locale
+        )
 
         # Return combined roadmap + legacy fields for Flutter compatibility.
         return translate_to_legacy(
@@ -195,10 +213,10 @@ app.include_router(assessment_router, prefix="/assessment", tags=["assessment"])
 app.include_router(ingestion_router, prefix="/ingestion", tags=["ingestion"])
 app.include_router(kb_router, prefix="/knowledge_base", tags=["knowledge_base"])
 app.include_router(architect_router, prefix="/architect", tags=["architect"])
+app.include_router(auditor_router, prefix="/auditor", tags=["auditor"])
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
-
