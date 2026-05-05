@@ -69,11 +69,18 @@ def _apply_detox_boost(score: float, task: ClinicalTask, boost: bool) -> float:
     return score
 
 
-def _triple_threat_score(similarity: float, form_weight: float, r_app: float) -> float:
+def _triple_threat_score(
+    similarity: float,
+    form_weight: float,
+    r_app: float,
+    utility_score: float = 0.5,
+) -> float:
+    normalized_utility = max(0.0, min(1.0, float(utility_score)))
     return (
-        (_normalize_similarity(similarity) * 0.4)
-        + (float(form_weight) * 0.3)
-        + (float(r_app) * 0.3)
+        (_normalize_similarity(similarity) * 0.35)
+        + (float(form_weight) * 0.25)
+        + (float(r_app) * 0.25)
+        + (normalized_utility * 0.15)
     )
 
 
@@ -187,8 +194,12 @@ def rerank_tasks(
     for task in tasks:
         sim = float(task.metadata.get("similarity", 0.0))
         form_weight = _form_weight_from_context(user_context, task)
+        utility_score = getattr(task, "utility_score", 0.5)
         base_score = _triple_threat_score(
-            similarity=sim, form_weight=form_weight, r_app=r_app
+            similarity=sim,
+            form_weight=form_weight,
+            r_app=r_app,
+            utility_score=utility_score,
         )
         final_score = _apply_detox_boost(base_score, task, boost_digital_detox)
         scored.append((final_score, task))

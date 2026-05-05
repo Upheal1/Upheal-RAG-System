@@ -23,7 +23,11 @@ def _make_user_context(
 
 
 def _make_task(
-    task_id: str, difficulty: int, tags: list[str], similarity: float = 0.5
+    task_id: str,
+    difficulty: int,
+    tags: list[str],
+    similarity: float = 0.5,
+    utility_score: float = 0.5,
 ) -> ClinicalTask:
     return ClinicalTask(
         task_id=task_id,
@@ -31,6 +35,8 @@ def _make_task(
         symptom_tags=tags,
         difficulty=difficulty,
         xp_reward=difficulty * 20,
+        safety_risk=False,
+        utility_score=utility_score,
         source_reference="test",
         metadata={"similarity": similarity},
     )
@@ -203,3 +209,85 @@ class TestPipelineDigitalDetoxIntegration:
 
         first_task_ids = [t.task_id for t in result.suggested_tasks[:1]]
         assert "grounding-task" in first_task_ids
+
+
+# ---------------------------------------------------------------------------
+# Triple-Threat v2: UtilityScore tests (A-YAH-14)
+# ---------------------------------------------------------------------------
+
+
+class TestTripleThreatV2UtilityScore:
+    def test_utility_score_normalized_to_1(self) -> None:
+        from services.architect.pipeline import _triple_threat_score
+
+        score = _triple_threat_score(
+            similarity=0.5, form_weight=0.5, r_app=0.5, utility_score=2.0
+        )
+        assert 0.0 <= score <= 1.5
+
+    def test_utility_score_normalized_to_0(self) -> None:
+        from services.architect.pipeline import _triple_threat_score
+
+        score = _triple_threat_score(
+            similarity=0.5, form_weight=0.5, r_app=0.5, utility_score=-0.5
+        )
+        assert 0.0 <= score <= 1.5
+
+    def test_utility_score_default_0_5(self) -> None:
+        from services.architect.pipeline import _triple_threat_score
+
+        score_with_default = _triple_threat_score(
+            similarity=0.5, form_weight=0.5, r_app=0.5
+        )
+        score_with_explicit = _triple_threat_score(
+            similarity=0.5, form_weight=0.5, r_app=0.5, utility_score=0.5
+        )
+        assert score_with_default == score_with_explicit
+
+    def test_different_utility_changes_ordering(self) -> None:
+        high_utility = _make_task(
+            "high-utility", 2, ["anxiety"], similarity=0.5, utility_score=0.9
+        )
+        low_utility = _make_task(
+            "low-utility", 2, ["anxiety"], similarity=0.5, utility_score=0.1
+        )
+        ctx = _make_user_context(form_scores={"anxiety": 60}, r_app=0.5)
+
+        result = rerank_tasks([low_utility, high_utility], ctx, top_n=2)
+        assert result[0].task_id == "high-utility"
+
+    def test_utility_score_at_fixed_similarity_changes_ordering(self) -> None:
+        t1 = _make_task("task-1", 2, ["anxiety"], similarity=0.6, utility_score=0.3)
+        t2 = _make_task("task-2", 2, ["anxiety"], similarity=0.6, utility_score=0.8)
+        ctx = _make_user_context(form_scores={"anxiety": 60}, r_app=0.5)
+
+        result = rerank_tasks([t1, t2], ctx, top_n=2)
+        assert result[0].task_id == "task-2"
+
+    def test_utility_weight_0_15_in_formula(self) -> None:
+        from services.architect.pipeline import _triple_threat_score
+
+        base_score = _triple_threat_score(
+            similarity=0.0, form_weight=0.0, r_app=0.0, utility_score=1.0
+        )
+        utility_contribution = base_score
+        assert 0.14 <= utility_contribution <= 0.16
+
+    def test_red_safety_path_bypasses_ranking(self) -> None:
+        from services.architect.pipeline import run_architect_pipeline
+        from services.shared.schemas import FinalRoadmap
+
+        dangerous_task = _make_task(
+            "dangerous", 3, ["suicide"], similarity=0.9, utility_score=0.9
+        )
+        safe_task = _make_task(
+            "safe", 1, ["breathing"], similarity=0.1, utility_score=0.1
+        )
+        ctx = _make_user_context(form_scores={"anxiety": 60}, r_app=0.5)
+
+        result = run_architect_pipeline(
+            ctx,
+            candidate_tasks=[dangerous_task, safe_task],
+            top_n=2,
+        )
+        assert result.safety_status == "RED"
