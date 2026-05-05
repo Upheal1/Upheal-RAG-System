@@ -199,6 +199,21 @@ def rerank_tasks(
     return top_tasks
 
 
+def _sequence_tasks(
+    tasks: Sequence[ClinicalTask],
+    user_context: UserContext,
+) -> List[ClinicalTask]:
+    """
+    Hook for A-YAH-06 Gamifier Agent.
+
+    When the Gamifier is implemented, this should apply XP scaling
+    and Quick Win → Ladder → Boss sequencing.
+
+    Currently returns tasks unchanged (pass-through).
+    """
+    return list(tasks)
+
+
 def build_overview_paragraph(
     user_context: UserContext, suggested_tasks: Sequence[ClinicalTask]
 ) -> str:
@@ -253,6 +268,9 @@ def run_architect_pipeline(
         top_n=top_n,
         boost_digital_detox=rq.boost_digital_detox,
     )
+
+    # Gamifier slot (A-YAH-06) — pass-through for now.
+    suggested = _sequence_tasks(suggested, user_context)
 
     draft = FinalRoadmap(
         user_id=user_context.user_id,
