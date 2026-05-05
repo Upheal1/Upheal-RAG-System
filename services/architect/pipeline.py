@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple
 
 from services.architect.auditor import audit_roadmap
+from services.architect.director_override import (
+    apply_directive_constraints,
+    load_active_directive,
+)
 from services.shared.logging import get_logger
 from services.shared.schemas import (
     ClinicalTask,
@@ -255,6 +259,11 @@ def run_architect_pipeline(
         pre_filtered = list(candidate_tasks)
     else:
         rq = retrieval_query or RetrievalQuery()
+
+        directive = load_active_directive(user_context.user_id)
+        if directive is not None:
+            rq = apply_directive_constraints(directive, rq)
+
         pre_filtered = retrieve_candidates(user_context, rq, chroma_kb=chroma_kb)
 
     if not pre_filtered:
