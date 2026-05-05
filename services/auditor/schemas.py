@@ -36,6 +36,8 @@ class AuditFlags(BaseModel):
     robotic_tone_detected: bool = False
     safety_risk_task_found: bool = False
     safety_risk_task_ids: List[str] = Field(default_factory=list)
+    frustration_detected: bool = False
+    frustration_score: float = 0.0
 
 
 class AuditResult(BaseModel):
@@ -47,6 +49,8 @@ class AuditResult(BaseModel):
     flags: AuditFlags = Field(default_factory=AuditFlags)
     overview_paragraph: str
     task_ids: List[str] = Field(default_factory=list)
+    frustration_score: float = 0.0
+    amber_advisory: bool = False
 
 
 class AuditRequest(BaseModel):
