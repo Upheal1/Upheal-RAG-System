@@ -1,27 +1,19 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from services.architect.pipeline import run_architect_pipeline
-from services.assessment.core import (
-    build_retrieval_query_text,
-    build_user_context,
-    gad7_raw_total,
-    infer_answers_dict,
-    phq9_raw_total,
-    severity_label_from_gad7_total,
-    severity_label_from_phq9_total,
-    sigmoid_probability_from_scale_total,
-)
-from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
+from services.gateway.orchestrator import run_assessment_chain
+from services.gateway.schemas import RoadmapRequest, RoadmapResponse
 from services.shared.logging import get_logger
-from services.shared.schemas import AssessGatewayResponse, FinalRoadmap, LegacyRAGRecommendation, RetrievalQuery
+from services.shared.schemas import AssessGatewayResponse
 from services.assessment.router import router as assessment_router
 from services.knowledge_base.router import router as kb_router
 from services.architect.router import router as architect_router
 from services.ingestion.router import router as ingestion_router
+from services.auditor.router import router as auditor_router
+from services.telemetry.router import router as telemetry_router
 
 
 logger = get_logger(__name__)
@@ -49,7 +41,9 @@ class AssessRequest(BaseModel):
     user_id: str
     session_id: Optional[str] = None
     locale: str = "en"
-    raw_forms_json: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(default_factory=dict)
+    raw_forms_json: Union[Dict[str, Any], List[Dict[str, Any]]] = Field(
+        default_factory=dict
+    )
     screen_time_minutes: float = 0.0
     answers: Optional[Dict[str, int]] = None
 
@@ -59,8 +53,6 @@ class HealthResponse(BaseModel):
     knowledge_base_healthy: bool
     knowledge_base_documents: int
 
-
-_kb = ChromaKnowledgeBase()
 
 # Pydantic v2 on newer Python versions can require an explicit rebuild for
 # runtime validation in FastAPI dependency solving.
@@ -73,6 +65,9 @@ except Exception:
 
 @app.get("/health", response_model=HealthResponse, tags=["gateway"])
 def health_check() -> HealthResponse:
+    from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
+
+    _kb = ChromaKnowledgeBase()
     return HealthResponse(
         status="ok",
         knowledge_base_healthy=_kb.is_healthy(),
@@ -83,105 +78,21 @@ def health_check() -> HealthResponse:
 @app.post("/api/assess", response_model=AssessGatewayResponse, tags=["assessment"])
 def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
     try:
-        # Workaround for Python 3.14 + FastAPI/Pydantic TypeAdapter "not fully defined":
-        # validate manually instead of relying on FastAPI's body parsing adapter.
         req = AssessRequest.model_validate(payload)
         raw_payload: Any = req.raw_forms_json
         if req.answers is not None:
             if isinstance(raw_payload, dict):
                 raw_payload = {**raw_payload, "answers": req.answers}
             else:
-                # If the payload is a list, wrap answers for inference.
                 raw_payload = {"answers": req.answers}
 
-        def translate_to_legacy(
-            *,
-            roadmap: FinalRoadmap,
-            answers: Dict[str, int],
-            query_used: str,
-            session_id: Optional[str],
-            form_scores: Dict[str, int],
-            r_app: float,
-        ) -> AssessGatewayResponse:
-            rag_recommendations = [
-                LegacyRAGRecommendation(
-                    source=str(t.source_reference),
-                    section=str(t.metadata.get("section") or ""),
-                    content=str(t.content),
-                    similarity=float(t.metadata.get("similarity", 0.0) or 0.0),
-                    pages=str(t.metadata.get("pages") or ""),
-                )
-                for t in (roadmap.suggested_tasks or [])
-            ]
-
-            if answers:
-                gad_total = gad7_raw_total(answers)
-                phq_total = phq9_raw_total(answers)
-                anxiety_probability = sigmoid_probability_from_scale_total(gad_total, 21, k=0.05)
-                depression_probability = sigmoid_probability_from_scale_total(phq_total, 27, k=0.05)
-                severity = {
-                    "anxiety": severity_label_from_gad7_total(gad_total),
-                    "depression": severity_label_from_phq9_total(phq_total),
-                }
-                comorbidity = "true" if (anxiety_probability > 0.5 and depression_probability > 0.5) else "false"
-            else:
-                gad_total = 0
-                phq_total = 0
-                anxiety_probability = 0.0
-                depression_probability = 0.0
-                severity = {"anxiety": "Mild", "depression": "Mild"}
-                comorbidity = "false"
-
-            # Always log a compact breakdown for debugging and manual QA.
-            logger.info(
-                "Score breakdown user_id=%s session_id=%s gad7_total=%s phq9_total=%s anxiety_p=%.4f depression_p=%.4f severity=%s form_scores=%s r_app=%.4f",
-                req.user_id,
-                session_id,
-                gad_total,
-                phq_total,
-                float(anxiety_probability),
-                float(depression_probability),
-                severity,
-                form_scores,
-                float(r_app),
-            )
-
-            return AssessGatewayResponse(
-                **roadmap.model_dump(),
-                anxiety_probability=float(anxiety_probability),
-                depression_probability=float(depression_probability),
-                severity=severity,
-                comorbidity=comorbidity,
-                rag_recommendations=rag_recommendations,
-                query_used=str(query_used),
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                session_id=session_id,
-            )
-
-        user_context = build_user_context(
+        return run_assessment_chain(
             user_id=req.user_id,
-            raw_forms_json=raw_payload,
+            raw_payload=raw_payload,
             screen_time_minutes=req.screen_time_minutes,
-        )
-
-        answers_for_query = infer_answers_dict(raw_payload) or {}
-        query_text = build_retrieval_query_text(user_context, answers_for_query)
-
-        candidate_tasks = _kb.retrieve_tasks(
-            RetrievalQuery(query_text=query_text),
-            user_context,
-            top_k=5,
-        )
-        roadmap = run_architect_pipeline(user_context, candidate_tasks, top_n=5, locale=req.locale)
-
-        # Return combined roadmap + legacy fields for Flutter compatibility.
-        return translate_to_legacy(
-            roadmap=roadmap,
-            answers=answers_for_query,
-            query_used=query_text,
+            locale=req.locale,
             session_id=req.session_id,
-            form_scores=dict(user_context.form_scores),
-            r_app=float(user_context.app_exposure_ratios.get("r_app", 0.0)),
+            answers=req.answers,
         )
     except HTTPException:
         raise
@@ -190,15 +101,60 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
         raise HTTPException(status_code=500, detail=f"Assessment failed: {e}")
 
 
+@app.post("/api/roadmap", response_model=RoadmapResponse, tags=["roadmap"])
+def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
+    """
+    Generate a personalized clinical roadmap.
+
+    Returns a clean `FinalRoadmap` response without legacy clinical fields.
+    This is the modern API contract for new clients.
+    """
+    try:
+        req = RoadmapRequest.model_validate(payload)
+        raw_payload: Any = req.raw_forms_json
+        if req.answers is not None:
+            if isinstance(raw_payload, dict):
+                raw_payload = {**raw_payload, "answers": req.answers}
+            else:
+                raw_payload = {"answers": req.answers}
+
+        chain_response = run_assessment_chain(
+            user_id=req.user_id,
+            raw_payload=raw_payload,
+            screen_time_minutes=req.screen_time_minutes,
+            locale=req.locale,
+            session_id=req.session_id,
+            answers=req.answers,
+            top_n=req.top_n,
+        )
+
+        roadmap = RoadmapResponse(
+            user_id=chain_response.user_id,
+            overview_paragraph=chain_response.overview_paragraph,
+            suggested_tasks=chain_response.suggested_tasks[: req.top_n],
+            safety_status=chain_response.safety_status,
+            next_checkup_days=chain_response.next_checkup_days,
+            generated_at=chain_response.timestamp,
+            session_id=chain_response.session_id,
+        )
+        return roadmap
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Roadmap generation failed")
+        raise HTTPException(status_code=500, detail=f"Roadmap generation failed: {e}")
+
+
 # Domain routers (primarily for /health endpoints).
 app.include_router(assessment_router, prefix="/assessment", tags=["assessment"])
 app.include_router(ingestion_router, prefix="/ingestion", tags=["ingestion"])
 app.include_router(kb_router, prefix="/knowledge_base", tags=["knowledge_base"])
 app.include_router(architect_router, prefix="/architect", tags=["architect"])
+app.include_router(auditor_router, prefix="/auditor", tags=["auditor"])
+app.include_router(telemetry_router, prefix="/api", tags=["telemetry"])
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
-

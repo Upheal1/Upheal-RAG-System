@@ -92,6 +92,18 @@ Legacy/mobile fields included:
   - `UPHEAL_CHROMA_PATH` — path to the Chroma persistence directory  
   - `UPHEAL_CHROMA_COLLECTION` — collection name  
 
+### `GET /knowledge_base/health`
+
+Knowledge-base health per Phase 1 spec.
+
+Response (`KnowledgeBaseHealthResponse`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `indexed_tasks` | int | Number of documents in the Chroma collection |
+| `storage_status` | string | `healthy` (has docs), `degraded` (empty but reachable), or `unavailable` |
+| `last_ingestion` | string (ISO-8601) or null | Timestamp of the last ingestion run, if known |
+
 ## Module map
 
 | Path | Role |

@@ -4,10 +4,19 @@ from services.shared.schemas import ClinicalTask, FinalRoadmap, UserContext
 
 
 def test_triple_threat_score_weights() -> None:
-    s = _triple_threat_score(similarity=1.0, form_weight=1.0, r_app=1.0)
+    s = _triple_threat_score(
+        similarity=1.0, form_weight=1.0, r_app=1.0, utility_score=1.0
+    )
     assert abs(s - 1.0) < 1e-9
-    s2 = _triple_threat_score(similarity=0.0, form_weight=0.0, r_app=0.0)
+    s2 = _triple_threat_score(
+        similarity=0.0, form_weight=0.0, r_app=0.0, utility_score=0.0
+    )
     assert abs(s2 - 0.0) < 1e-9
+    s3 = _triple_threat_score(
+        similarity=1.0, form_weight=1.0, r_app=1.0, utility_score=0.5
+    )
+    expected = (1.0 * 0.35) + (1.0 * 0.25) + (1.0 * 0.25) + (0.5 * 0.15)
+    assert abs(s3 - expected) < 1e-9
 
 
 def test_rerank_tasks_orders_by_score() -> None:

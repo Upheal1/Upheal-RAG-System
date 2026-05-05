@@ -43,9 +43,7 @@ def _xp_from_metadata(meta: Dict[str, Any]) -> int:
         return 10
 
 
-def _symptom_tags_from_metadata(
-    meta: Dict[str, Any], fallback: List[str]
-) -> List[str]:
+def _symptom_tags_from_metadata(meta: Dict[str, Any], fallback: List[str]) -> List[str]:
     raw = meta.get("clinical_tags")
     if isinstance(raw, str) and raw.strip():
         return [t.strip() for t in raw.split(",") if t.strip()]
@@ -78,7 +76,14 @@ def _build_where_filter(
     """
     Build ChromaDB metadata filter from UserContext form_scores (tag_primary mapping)
     and RetrievalQuery.max_difficulty ceiling.
-    Omit tag filter if only suicidal/general scores are present.
+
+    Separation of concerns:
+    - Tag filter: OR clause over allowed tag_primary values.
+    - Difficulty filter: standalone $lte constraint.
+    - Combined: $and of both only when both are semantically required.
+
+    Returns None when no meaningful retrieval signal exists.
+    Difficulty is never a standalone filter.
     """
     tag_clauses: List[Dict[str, Any]] = []
 
@@ -88,20 +93,18 @@ def _build_where_filter(
         if int(v) > 0 and k in ("anxiety", "depression"):
             tag_clauses.append({"tag_primary": k})
 
-    if tag_clauses:
-        tag_clauses.append({"tag_primary": "general"})
-
-    if query.max_difficulty is not None:
-        difficulty_clause: Dict[str, Any] = {"difficulty": {"$lte": query.max_difficulty}}
-        if not tag_clauses:
-            return difficulty_clause
-        return {"$and": [{"$or": tag_clauses}, difficulty_clause]}
-
     if not tag_clauses:
         return None
-    if len(tag_clauses) == 1:
-        return tag_clauses[0]
-    return {"$or": tag_clauses}
+
+    tag_clauses.append({"tag_primary": "general"})
+    tag_filter = tag_clauses[0] if len(tag_clauses) == 1 else {"$or": tag_clauses}
+
+    effective_max = query.max_difficulty if query.max_difficulty is not None else 5
+    if effective_max >= 5:
+        return tag_filter
+
+    difficulty_clause: Dict[str, Any] = {"difficulty": {"$lte": effective_max}}
+    return {"$and": [tag_filter, difficulty_clause]}
 
 
 def _build_where_document_filter(query_text: str) -> Optional[Dict[str, Any]]:
@@ -164,7 +167,9 @@ class ChromaKnowledgeBase:
         self._model = SentenceTransformer(self.model_name)
 
         vector_db_path = str(self.vector_db_path)
-        if vector_db_path.startswith("http://") or vector_db_path.startswith("https://"):
+        if vector_db_path.startswith("http://") or vector_db_path.startswith(
+            "https://"
+        ):
             logger.info("Using HTTP ChromaDB client: %s", vector_db_path)
             self._client = chromadb.HttpClient(host=vector_db_path)
         else:
@@ -190,6 +195,20 @@ class ChromaKnowledgeBase:
         except Exception:
             return 0
 
+    def get_collection_metadata(self) -> Dict[str, Any]:
+        """Return the collection-level metadata dict (may include last_ingestion)."""
+        self._ensure_loaded()
+        if self._collection is None:
+            return {}
+        try:
+            # ChromaDB collections expose metadata via the attribute or get_model.
+            meta = getattr(self._collection, "metadata", None)
+            if isinstance(meta, dict):
+                return dict(meta)
+            return {}
+        except Exception:
+            return {}
+
     def retrieve_tasks(
         self,
         query: RetrievalQuery,
@@ -203,10 +222,14 @@ class ChromaKnowledgeBase:
 
         query_text = query.query_text or " ".join(query.symptom_keywords)
         if not query_text:
-            query_text = " ".join(
-                k for k in user_context.form_scores.keys()
-                if k not in ("general", "suicidal")
-            ) or "general wellness"
+            query_text = (
+                " ".join(
+                    k
+                    for k in user_context.form_scores.keys()
+                    if k not in ("general", "suicidal")
+                )
+                or "general wellness"
+            )
 
         query_embedding = self._model.encode([query_text])
         where = _build_where_filter(user_context, query)
@@ -226,7 +249,9 @@ class ChromaKnowledgeBase:
 
             results = self._collection.query(**kwargs)
         except Exception as e:
-            logger.debug("Chroma query with where failed (%s), retrying without filter", e)
+            logger.debug(
+                "Chroma query with where failed (%s), retrying without filter", e
+            )
             results = self._collection.query(
                 query_embeddings=query_embedding.tolist(),
                 n_results=n_fetch,
@@ -249,7 +274,9 @@ class ChromaKnowledgeBase:
             header = meta_dict.get("header")
             source_reference = str(meta_dict.get("source_file", "Unknown"))
             pages = meta_dict.get("page_numbers")
-            symptom_tags = _symptom_tags_from_metadata(meta_dict, query.symptom_keywords)
+            symptom_tags = _symptom_tags_from_metadata(
+                meta_dict, query.symptom_keywords
+            )
             difficulty = _difficulty_from_metadata(meta_dict)
             xp_reward = _xp_from_metadata(meta_dict)
             safety_risk = _safety_risk_from_metadata(meta_dict)
@@ -282,7 +309,9 @@ class ChromaKnowledgeBase:
 
         return tasks[:top_k]
 
-    def _apply_digital_detox_boost(self, tasks: List[ClinicalTask]) -> List[ClinicalTask]:
+    def _apply_digital_detox_boost(
+        self, tasks: List[ClinicalTask]
+    ) -> List[ClinicalTask]:
         detox_tasks: List[ClinicalTask] = []
         non_detox_tasks: List[ClinicalTask] = []
 

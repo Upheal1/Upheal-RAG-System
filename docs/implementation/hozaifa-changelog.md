@@ -10,6 +10,47 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ## [Completed]
 
+### A-HOZ-07: Integrity Check Script
+
+**Status:** ✅ Done
+
+**Files Changed:**
+- `scripts/verify_integrity.py` - Integrity checker for ChromaDB metadata
+- `tests/test_verify_integrity.py` - 22 tests
+
+**Features Implemented:**
+- Scans every document in a ChromaDB collection for mandatory metadata fields
+- Validates `difficulty` (1-5), `xp_reward` (>= 0), and `clinical_tags` (non-empty)
+- Paginates through large collections (500-item batches)
+- Pretty-prints violation table with `task_id` and missing/invalid fields
+- Exit code 0 when clean, 1 when violations found, 2 on checker errors
+- Respects `UPHEAL_CHROMA_PATH` and `UPHEAL_CHROMA_COLLECTION` env vars
+- Runnable standalone: `python scripts/verify_integrity.py [<path> <collection>]`
+
+**Testing:** 22 tests passing
+
+---
+
+### A-HOZ-08: GET /health for Knowledge Base
+
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/knowledge_base/router.py` - Refactored with `KnowledgeBaseHealthResponse` Pydantic model
+- `services/knowledge_base/chroma_adapter.py` - Added `get_collection_metadata()` helper
+- `tests/test_kb_router.py` - 9 tests
+- `docs/services/microservices.md` - Documented endpoint
+
+**Features Implemented:**
+- Response shape matches Phase 1 spec: `indexed_tasks`, `storage_status`, `last_ingestion`
+- `storage_status` derived as `healthy` | `degraded` | `unavailable`
+- `last_ingestion` read from collection metadata or `config.json` fallback
+- OpenAPI-validated response model
+
+**Testing:** 9 tests passing
+
+---
+
 ### A-HOZ-10: Supabase Schema (Expanded)
 
 **Branch:** `A-HOZ-06-chroma-adapter`
@@ -136,6 +177,29 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ---
 
+### A-HOZ-09: Initial Clinical PDF Migration Script
+
+**Status:** ✅ Done
+
+**Files Changed:**
+- `scripts/migrate_initial_clinical_library.py` - Full pipeline migration script
+- `tests/test_migrate.py` - 12 tests (10 unit, 2 integration)
+
+**Features Implemented:**
+- Loads `semantic_chunks.json`, formats metadata via formatter agent, embeds, upserts into ChromaDB
+- Idempotent: wipe-and-rebuild strategy (deletes existing collection before re-ingestion)
+- `--books` filter for specific source files, or ingests all by default
+- `--use-llm` flag for LLM-based formatting (keyword fallback by default)
+- `--dry-run` mode for validation without ChromaDB writes
+- Structured logging end-to-end via `services.shared.logging`
+- Emits `config.json` with `last_ingestion` timestamp for health endpoint
+- Respects `UPHEAL_CHROMA_PATH`, `UPHEAL_CHROMA_COLLECTION`, `UPHEAL_EMBEDDING_MODEL` env vars
+- CLI: `python scripts/migrate_initial_clinical_library.py [options]`
+
+**Testing:** 12 tests (10 unit + 2 integration with embedding model)
+
+---
+
 ### A-HOZ-02: Structured JSON Logger
 
 **Branch:** `A-HOZ-02-logging`
@@ -167,37 +231,29 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ---
 
-## Pending Tasks
-
-### A-HOZ-07: Integrity Check Script
-**File:** `scripts/verify_integrity.py`
-**Depends On:** A-HOZ-06
-**Status:** 🔲 Not Started
-
-### A-HOZ-08: GET /health
-**File:** `services/knowledge_base/router.py`
-**Depends On:** A-HOZ-06
-**Status:** 🔲 Not Started
-
-### A-HOZ-09: Initial PDF Migration Script
-**File:** `scripts/migrate_initial_clinical_library.py`
-**Depends On:** A-HOZ-04, A-HOZ-05, A-HOZ-06
-**Status:** 🔲 Not Started
-
-### A-HOZ-10: Supabase Migrations
-**Files:** `supabase/migrations/`
-**Status:** 🔲 Not Started
-
-Tables:
-- `interaction_logs` - User interaction telemetry
-- `roadmap_mutations` - Director mutation audit trail
+## Completed
 
 ### A-HOZ-11: State Manager
-**File:** `services/shared/state.py`
-**Depends On:** A-HOZ-10
-**Status:** 🔲 Not Started
 
-Requirements:
-- Pathing helpers for clinical PDF directories
-- Supabase sync hooks with optimistic locking
-- Offline retry backoff (1s, 2s, 4s, cap 60s)
+**Branch:** `A-HOZ-11`
+**Status:** ✅ Done
+
+**Files Changed:**
+- `services/shared/state.py` - Full state manager module
+- `tests/test_state.py` - 40 unit tests
+- `.env.example` - Added `UPHEAL_DATA_DIR`, `UPHEAL_SUPABASE_URL`, `UPHEAL_SUPABASE_KEY`
+
+**Features Implemented:**
+- **Pathing helpers:** `data_root()`, `books_dir()`, `rag_chunks_dir()`, `vector_db_path()`, `semantic_chunks_path()`, `config_path()`, `list_pdf_books()`, `ensure_data_dirs()` — all env-override aware (`UPHEAL_DATA_DIR`, `UPHEAL_CHROMA_PATH`, `UPHEAL_CHROMA_COLLECTION`, `UPHEAL_EMBEDDING_MODEL`)
+- **Supabase sync hooks:** `SupabaseSyncHook` with optimistic locking (`version` column), `insert_row()`, `fetch_one()`, `upsert_row()` (conflict detection), `delete_row()`, lazy client construction from env vars
+- **Offline retry backoff:** `retry_with_backoff()` with exponential backoff (1 s → 2 s → 4 s → … cap 60 s), configurable retryable predicate, `OfflineRetryExhausted` exception
+- **Utilities:** `file_sha256()` for integrity checks, `load_config()` / `save_config()` for ingestion config.json round-trips
+- **`SyncConflictError`** raised on stale optimistic-lock writes
+
+**Testing:** 40 unit tests passing
+
+---
+
+## Pending Tasks
+
+---

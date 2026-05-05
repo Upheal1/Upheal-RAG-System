@@ -5,6 +5,19 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class RetrievalQuery(BaseModel):
+    """
+    Controls what the architect pipeline retrieves from the knowledge base.
+    """
+
+    symptom_keywords: List[str] = Field(default_factory=list)
+    max_difficulty: int = Field(default=5, ge=1, le=5)
+    boost_digital_detox: bool = False
+    candidate_count: int = Field(default=10, ge=1)
+    locale: str = "en"
+    query_text: Optional[str] = None
+
+
 class ClinicalTask(BaseModel):
     """
     A single actionable clinical-style recommendation candidate.
@@ -19,19 +32,6 @@ class ClinicalTask(BaseModel):
     utility_score: float = 0.5
     source_reference: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class RetrievalQuery(BaseModel):
-    """
-    Query specification for knowledge base retrieval.
-    Used by chroma_adapter.retrieve_tasks() to apply semantic query,
-    symptom filters, difficulty ceiling, and optional digital detox boost.
-    """
-
-    query_text: str
-    symptom_keywords: List[str] = Field(default_factory=list)
-    max_difficulty: Optional[int] = Field(default=None, ge=1, le=5)
-    boost_digital_detox: bool = False
 
 
 class UserContext(BaseModel):
@@ -76,4 +76,3 @@ class AssessGatewayResponse(FinalRoadmap):
     query_used: str
     timestamp: str
     session_id: Optional[str] = None
-
