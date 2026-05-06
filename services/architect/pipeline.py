@@ -219,14 +219,27 @@ def _sequence_tasks(
     user_context: UserContext,
 ) -> List[ClinicalTask]:
     """
-    Hook for A-YAH-06 Gamifier Agent.
+    Minimal Gamifier: sort by difficulty ascending and assign phase labels.
 
-    When the Gamifier is implemented, this should apply XP scaling
-    and Quick Win → Ladder → Boss sequencing.
+    Phase assignment:
+    - difficulty 1-2 → Quick Win
+    - difficulty 3 → Ladder
+    - difficulty 4-5 → Boss
 
-    Currently returns tasks unchanged (pass-through).
+    This hook is reserved for A-YAH-06 (full Gamifier) which will add
+    XP scaling and more sophisticated sequencing.
     """
-    return list(tasks)
+    sorted_tasks = sorted(list(tasks), key=lambda t: (t.difficulty, -t.utility_score))
+
+    for task in sorted_tasks:
+        if task.difficulty <= 2:
+            task.phase = "Quick Win"
+        elif task.difficulty == 3:
+            task.phase = "Ladder"
+        else:
+            task.phase = "Boss"
+
+    return sorted_tasks
 
 
 def build_overview_paragraph(
