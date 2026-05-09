@@ -15,6 +15,9 @@ from services.architect.router import router as architect_router
 from services.ingestion.router import router as ingestion_router
 from services.auditor.router import router as auditor_router
 from services.telemetry.router import router as telemetry_router
+from services.chat.router import router as chat_router
+from services.journal.router import router as journal_router
+from services.roadmap.router import router as roadmap_router
 
 
 logger = get_logger(__name__)
@@ -182,6 +185,9 @@ app.include_router(kb_router, prefix="/knowledge_base", tags=["knowledge_base"])
 app.include_router(architect_router, prefix="/architect", tags=["architect"])
 app.include_router(auditor_router, prefix="/auditor", tags=["auditor"])
 app.include_router(telemetry_router, prefix="/api", tags=["telemetry"])
+app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(journal_router, prefix="/api", tags=["journal"])
+app.include_router(roadmap_router, prefix="/api", tags=["roadmap"])
 
 
 if __name__ == "__main__":
