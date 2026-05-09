@@ -3,7 +3,7 @@
 -- Part of: A-HOZ-10 Supabase Migrations — expanded schema
 -- Created: 2026-05-01
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TYPE task_modality AS ENUM (
     'breathing',
@@ -23,7 +23,7 @@ CREATE TYPE task_locale AS ENUM (
 );
 
 CREATE TABLE clinical_tasks (
-    id              UUID          NOT NULL DEFAULT uuid_generate_v4(),
+    id              UUID          NOT NULL DEFAULT gen_random_uuid(),
     title           TEXT          NOT NULL,
     description     TEXT          NOT NULL,
     difficulty      INTEGER       NOT NULL CHECK (difficulty BETWEEN 1 AND 5),

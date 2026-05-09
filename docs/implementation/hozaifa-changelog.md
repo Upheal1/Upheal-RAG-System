@@ -51,7 +51,7 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 
 ---
 
-### A-HOZ-10: Supabase Schema (Expanded)
+### A-HOZ-10: Supabase Schema (Expanded) + Schema Enhancement Sprint
 
 **Branch:** `A-HOZ-06-chroma-adapter`
 **Status:** ✅ Done
@@ -65,11 +65,16 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 - `supabase/migrations/006_create_assessment_responses.sql`
 - `supabase/migrations/007_create_interest_profiles.sql`
 - `supabase/migrations/008_add_foreign_keys.sql`
+- `supabase/migrations/009_create_retrieval_logs_and_chat.sql` *(new)*
+- `supabase/migrations/010_add_data_retention_cleanup.sql` *(new)*
+- `supabase/migrations/011_fix_security_definer_functions.sql` *(new)*
 - `supabase/README.md`
+- `supabase/combined_migrations.sql`
+- `docs/database-schema.md` *(new)*
 
-**Schema Implemented:**
+**Schema Implemented (001–008):**
 - `users` — auth baseline
-- `user_profiles` — GAD-7/PHQ-9 scores, screen time, user_level, modality_weights, tag_boosts
+- `user_profiles` — GAD-7/PHQ-9 scores, screen time, user_level
 - `assessment_responses` — raw form submissions (EN/AR)
 - `clinical_tasks` — canonical task definitions synced with Chroma metadata
 - `roadmaps` / `roadmap_tasks` — per-generation roadmap with validity window
@@ -77,7 +82,24 @@ Changelog for Hozaifa's implementation tasks (Phase 1 - Knowledge Infrastructure
 - `roadmap_mutations` — Director mutation audit trail
 - `interest_profiles` — Director-evolved tag/modality preferences
 
-**Foreign keys:** `interaction_logs` and `roadmap_mutations` now reference `users` and `clinical_tasks`.
+**Schema Enhancements (009–011):**
+- `retrieval_logs` — Chroma retrieval traces with similarity scores and filters for Director self-correction
+- `chat_sessions` / `chat_messages` — LLM conversational history
+- `xp_transactions` — Gamification audit ledger (every XP change traced)
+- `retention_settings` — Configurable cleanup policy per log table
+- `log_table_sizes` — Monitoring view for table growth
+- `user_profiles` — **Removed** `modality_weights` and `tag_boosts` (redundancy fix; dynamic prefs live in `interest_profiles`)
+- `interaction_logs` — Added `user_rating` (1–5) and `feedback_text` for qualitative Director signals
+- `roadmap_tasks.status` — Changed from `TEXT` to `roadmap_task_status` enum (ASSIGNED/IN_PROGRESS/COMPLETED/SKIPPED/DROPPED)
+- `roadmap_mutations` — Security fix: wrapped `rls_auto_enable` revocation in conditional `DO $$` block
+- Cleanup functions: `cleanup_interaction_logs()`, `cleanup_chat_messages()`, `cleanup_retrieval_logs()`, `cleanup_assessment_responses()`, `run_all_cleanup()`
+- Security helper: `list_security_definer_functions()` — audits exposed SECURITY DEFINER functions
+
+**Foreign keys:** 15 FK constraints linking all tables to `users`, `clinical_tasks`, `roadmaps`, `chat_sessions`.
+
+**Cloud Deployment:** All 11 migrations applied to `gcxxmjptbyvlabqzcprv.supabase.co`.
+
+**UUID Standard:** Switched from `uuid_generate_v4()` (uuid-ossp) to `gen_random_uuid()` (pgcrypto) for universal Supabase compatibility.
 
 ---
 

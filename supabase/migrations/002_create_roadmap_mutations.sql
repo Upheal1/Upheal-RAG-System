@@ -4,7 +4,7 @@
 -- Created: 2026-05-01
 
 -- Enable UUID extension (if not already created in previous migrations)
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Mutation action enum
 CREATE TYPE mutation_action AS ENUM (
@@ -17,7 +17,7 @@ CREATE TYPE mutation_action AS ENUM (
 
 -- Roadmap mutations audit table
 CREATE TABLE roadmap_mutations (
-    mutation_id          UUID          NOT NULL DEFAULT uuid_generate_v4(),
+    mutation_id          UUID          NOT NULL DEFAULT gen_random_uuid(),
     user_id             UUID          NOT NULL,
     directive_id        UUID          NOT NULL,
     kind                mutation_action NOT NULL,
