@@ -7,13 +7,16 @@ The Gamifier (A-YAH-06) slot is reserved as a no-op hook for later insertion.
 
 from __future__ import annotations
 
+import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from services.architect.pipeline import run_architect_pipeline
 from services.assessment.core import (
     build_retrieval_query_text,
+    build_screen_time_insights,
     build_user_context,
     gad7_raw_total,
     infer_answers_dict,
@@ -29,6 +32,7 @@ from services.shared.schemas import (
     FinalRoadmap,
     LegacyRAGRecommendation,
     RetrievalQuery,
+    ScreenTimeData,
     UserContext,
 )
 
@@ -36,6 +40,89 @@ logger = get_logger(__name__)
 _kb = ChromaKnowledgeBase()
 
 ASSESSMENT_STAGE = "gateway.assess"
+
+
+def _persist_assessment_to_supabase(
+    user_id: str,
+    response: AssessGatewayResponse,
+    answers: Dict[str, int],
+    screen_time_minutes: float,
+) -> None:
+    """
+    Fire-and-forget Supabase post-writes for assessment_responses,
+    roadmaps, and roadmap_tasks. Never blocks or breaks the response.
+    """
+    try:
+        from services.shared.state import SupabaseSyncHook
+
+        assessment_hook = SupabaseSyncHook("assessment_responses")
+        row = {
+            "user_id": str(uuid.uuid5(uuid.NAMESPACE_URL, user_id)),
+            "locale": "en",
+            "form_payload": {"answers": answers},
+            "gad7_score": gad7_raw_total(answers) if answers else 0,
+            "phq9_score": phq9_raw_total(answers) if answers else 0,
+            "screen_time_minutes": int(screen_time_minutes),
+        }
+        assessment_hook.insert_row(row)
+        logger.info(
+            "orchestrator.persist.assessment_responses",
+            user_id=user_id,
+        )
+    except Exception as e:
+        logger.warning(
+            "orchestrator.persist.assessment_responses.failed",
+            user_id=user_id,
+            error=str(e),
+        )
+
+    try:
+        from services.shared.state import SupabaseSyncHook
+
+        roadmap_hook = SupabaseSyncHook("roadmaps")
+        user_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, user_id))
+
+        existing = roadmap_hook.fetch_one({"user_id": user_uuid})
+        generation_number = 1
+        if existing and "generation_number" in existing:
+            generation_number = int(existing["generation_number"]) + 1
+
+        roadmap_row = {
+            "user_id": user_uuid,
+            "generation_number": generation_number,
+            "overall_theme": response.safety_status,
+            "status": "ACTIVE",
+        }
+        roadmap_result = roadmap_hook.insert_row(roadmap_row)
+        roadmap_id = roadmap_result.get("id")
+
+        if roadmap_id and response.suggested_tasks:
+            tasks_hook = SupabaseSyncHook("roadmap_tasks")
+            for idx, task in enumerate(response.suggested_tasks):
+                task_row = {
+                    "roadmap_id": roadmap_id,
+                    "task_id": str(uuid.uuid5(uuid.NAMESPACE_URL, task.task_id)),
+                    "sequence_order": idx,
+                    "xp_earned": task.xp_reward,
+                    "status": "ASSIGNED",
+                }
+                try:
+                    tasks_hook.insert_row(task_row)
+                except Exception:
+                    pass
+
+        logger.info(
+            "orchestrator.persist.roadmaps",
+            user_id=user_id,
+            generation_number=generation_number,
+            task_count=len(response.suggested_tasks),
+        )
+    except Exception as e:
+        logger.warning(
+            "orchestrator.persist.roadmaps.failed",
+            user_id=user_id,
+            error=str(e),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -48,14 +135,27 @@ def _sequence_tasks(
     user_context: UserContext,
 ) -> list:
     """
-    Hook for A-YAH-06 Gamifier Agent.
+    Minimal Gamifier: sort by difficulty ascending and assign phase labels.
 
-    When the Gamifier is implemented, this should apply XP scaling
-    and Quick Win → Ladder → Boss sequencing.
+    Phase assignment:
+    - difficulty 1-2 → Quick Win
+    - difficulty 3 → Ladder
+    - difficulty 4-5 → Boss
 
-    Currently returns tasks unchanged (pass-through).
+    This hook is reserved for A-YAH-06 (full Gamifier) which will add
+    XP scaling and more sophisticated sequencing.
     """
-    return tasks
+    sorted_tasks = sorted(tasks, key=lambda t: (t.difficulty, -t.utility_score))
+
+    for task in sorted_tasks:
+        if task.difficulty <= 2:
+            task.phase = "Quick Win"
+        elif task.difficulty == 3:
+            task.phase = "Ladder"
+        else:
+            task.phase = "Boss"
+
+    return sorted_tasks
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +167,7 @@ def _run_profiler(
     user_id: str,
     raw_payload: Any,
     screen_time_minutes: float,
+    screen_time_data: Optional[ScreenTimeData] = None,
 ) -> UserContext:
     t0 = time.monotonic()
     logger.info(f"{ASSESSMENT_STAGE}.profiler.start", user_id=user_id)
@@ -75,6 +176,7 @@ def _run_profiler(
         user_id=user_id,
         raw_forms_json=raw_payload,
         screen_time_minutes=screen_time_minutes,
+        screen_time_data=screen_time_data,
     )
 
     elapsed = time.monotonic() - t0
@@ -149,6 +251,13 @@ def _assemble_response(
         for t in roadmap.suggested_tasks
     ]
 
+    screen_time_insights = None
+    if user_context.screen_time_data is not None:
+        try:
+            screen_time_insights = build_screen_time_insights(user_context.screen_time_data)
+        except Exception:
+            screen_time_insights = None
+
     if answers:
         gad_total = gad7_raw_total(answers)
         phq_total = phq9_raw_total(answers)
@@ -201,6 +310,7 @@ def _assemble_response(
         query_used=str(query_used),
         timestamp=datetime.now(timezone.utc).isoformat(),
         session_id=session_id,
+        screen_time_insights=screen_time_insights,
     )
 
     elapsed = time.monotonic() - t0
@@ -286,6 +396,7 @@ def run_assessment_chain(
     session_id: Optional[str] = None,
     answers: Optional[Dict[str, int]] = None,
     top_n: int = 5,
+    screen_time_data: Optional[ScreenTimeData] = None,
 ) -> AssessGatewayResponse:
     """
     Execute the full assessment chain:
@@ -302,7 +413,7 @@ def run_assessment_chain(
 
     # --- Stage 1: Profiler ---
     try:
-        user_context = _run_profiler(user_id, raw_payload, screen_time_minutes)
+        user_context = _run_profiler(user_id, raw_payload, screen_time_minutes, screen_time_data)
     except Exception as e:
         logger.error(f"{ASSESSMENT_STAGE}.profiler.error", error=str(e))
         return _safe_fallback_response(user_id, session_id, "profiler", answers)
@@ -323,9 +434,22 @@ def run_assessment_chain(
 
     # --- Stage 3: Assemble response ---
     try:
-        return _assemble_response(
+        response = _assemble_response(
             roadmap, user_context, answers, query_text, session_id
         )
     except Exception as e:
         logger.error(f"{ASSESSMENT_STAGE}.assemble.error", error=str(e))
         return _safe_fallback_response(user_id, session_id, "assemble", answers)
+
+    # --- Post-write to Supabase (fire-and-forget in background) ---
+    try:
+        persist_thread = threading.Thread(
+            target=_persist_assessment_to_supabase,
+            args=(user_id, response, answers, screen_time_minutes),
+            daemon=True,
+        )
+        persist_thread.start()
+    except Exception as e:
+        logger.warning("orchestrator.persist.spawn_failed", error=str(e))
+
+    return response

@@ -3,7 +3,7 @@
 -- Part of: A-HOZ-10 Supabase Migrations — expanded schema
 -- Created: 2026-05-01
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TYPE roadmap_status AS ENUM (
     'ACTIVE',
@@ -13,7 +13,7 @@ CREATE TYPE roadmap_status AS ENUM (
 );
 
 CREATE TABLE roadmaps (
-    id                  UUID          NOT NULL DEFAULT uuid_generate_v4(),
+    id                  UUID          NOT NULL DEFAULT gen_random_uuid(),
     user_id             UUID          NOT NULL,
     generation_number   INTEGER       NOT NULL DEFAULT 1,
     overall_theme       TEXT,
@@ -33,7 +33,7 @@ CREATE INDEX idx_roadmaps_valid_period ON roadmaps(valid_from, valid_until);
 CREATE INDEX idx_roadmaps_status ON roadmaps(status);
 
 CREATE TABLE roadmap_tasks (
-    id              UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    id              UUID        NOT NULL DEFAULT gen_random_uuid(),
     roadmap_id      UUID        NOT NULL,
     task_id         UUID        NOT NULL,
     sequence_order  INTEGER     NOT NULL DEFAULT 0,

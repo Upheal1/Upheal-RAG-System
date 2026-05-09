@@ -8,6 +8,7 @@ Canonical documentation for the project. Package-level folders (`services/`, `sr
 |-----|-------------|
 | [Getting started](getting-started.md) | Install, run legacy API vs microservices gateway, tests |
 | [Architecture overview](architecture/overview.md) | Repository layout, data flow, stack |
+| [Database schema](database-schema.md) | Full schema reference, migrations, security, setup |
 | [Microservices & gateway API](services/microservices.md) | `services/` layout, `POST /api/assess`, Chroma env vars |
 | [Ingestion & vector index](services/ingestion.md) | Enriched Chroma build, `UPHEAL_*` variables |
 | [Roadmap & team split](roadmap/upheal-rag-next-phase.md) | Phased plan and suggested two-person work split |

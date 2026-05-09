@@ -24,7 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover
             self.status_code = int(status_code)
             self.detail = detail
 
-from services.shared.schemas import UserContext
+from services.shared.schemas import ScreenTimeData, UserContext
 
 
 MAX_POINTS_BY_TAG: Dict[str, int] = {
@@ -68,6 +68,82 @@ def sigmoid_r_app(screen_time_minutes: float, *, threshold_minutes: float = 60.0
     minutes = float(screen_time_minutes)
     z = -0.05 * (minutes - float(threshold_minutes))
     return 1.0 / (1.0 + math.exp(z))
+
+
+def parse_screen_time_data(data: ScreenTimeData) -> dict:
+    """
+    Parse rich Flutter screen time data into derived metrics.
+
+    Returns a dict with:
+    - total_minutes: total screen time
+    - social_ratio: fraction of time in social apps
+    - productivity_ratio: fraction of time in productivity apps
+    - top_social_apps: list of social app package names sorted by usage
+    - top_productivity_apps: list of productivity app package names sorted by usage
+    - enhanced_r_app: sigmoid-based r_app adjusted by social_ratio
+    """
+    total = data.totalMinutes
+
+    if total <= 0:
+        return {
+            "total_minutes": 0.0,
+            "social_ratio": 0.0,
+            "productivity_ratio": 0.0,
+            "top_social_apps": [],
+            "top_productivity_apps": [],
+            "enhanced_r_app": 0.0,
+        }
+
+    social = data.socialMinutes
+    productivity = data.productivityMinutes
+
+    top_social = sorted(
+        [app.packageName for app in data.dailyUsage if app.category.lower() == "social"],
+        key=lambda name: next(
+            (a.usageTime for a in data.dailyUsage if a.packageName == name), 0
+        ),
+        reverse=True,
+    )[:5]
+
+    top_productivity = sorted(
+        [app.packageName for app in data.dailyUsage if app.category.lower() == "productivity"],
+        key=lambda name: next(
+            (a.usageTime for a in data.dailyUsage if a.packageName == name), 0
+        ),
+        reverse=True,
+    )[:5]
+
+    base_r = sigmoid_r_app(total, threshold_minutes=60.0)
+
+    social_ratio = data.social_ratio
+    productivity_ratio = data.productivity_ratio
+    enhanced_r = base_r + (social_ratio * 0.15) - (productivity_ratio * 0.10)
+    enhanced_r = max(0.0, min(1.0, enhanced_r))
+
+    return {
+        "total_minutes": total,
+        "social_ratio": social_ratio,
+        "productivity_ratio": productivity_ratio,
+        "top_social_apps": top_social,
+        "top_productivity_apps": top_productivity,
+        "enhanced_r_app": enhanced_r,
+    }
+
+
+def build_screen_time_insights(data: ScreenTimeData) -> dict:
+    """
+    Build the screen_time_insights dict for the response payload.
+    """
+    parsed = parse_screen_time_data(data)
+    from services.shared.schemas import ScreenTimeInsights
+
+    return ScreenTimeInsights(
+        totalMinutes=parsed["total_minutes"],
+        socialRatio=parsed["social_ratio"],
+        productivityRatio=parsed["productivity_ratio"],
+        topSocialApps=parsed["top_social_apps"],
+        topProductivityApps=parsed["top_productivity_apps"],
+    )
 
 
 def sigmoid_probability_from_scale_total(
@@ -322,12 +398,21 @@ def build_user_context(
     raw_forms_json: Any,
     screen_time_minutes: float,
     user_stats: Optional[Dict[str, int]] = None,
+    screen_time_data: Optional[ScreenTimeData] = None,
 ) -> UserContext:
     """
     Build `UserContext` using sigmoid R_app and form scores (scale + optional Bayesian blend).
+
+    When `screen_time_data` is provided, computes an enhanced R_app that accounts for
+    social vs productivity app ratios. Otherwise falls back to the simple sigmoid.
     """
     timestamp = datetime.now().isoformat()
-    r_app = sigmoid_r_app(screen_time_minutes, threshold_minutes=60.0)
+
+    if screen_time_data is not None and screen_time_data.totalMinutes > 0:
+        parsed = parse_screen_time_data(screen_time_data)
+        r_app = parsed["enhanced_r_app"]
+    else:
+        r_app = sigmoid_r_app(screen_time_minutes, threshold_minutes=60.0)
 
     answers = infer_answers_dict(raw_forms_json) or {}
     validate_phq9_gad7_answers(answers)
@@ -356,4 +441,5 @@ def build_user_context(
         form_scores=form_scores,
         app_exposure_ratios={"r_app": float(r_app)},
         user_stats=user_stats,
+        screen_time_data=screen_time_data,
     )
