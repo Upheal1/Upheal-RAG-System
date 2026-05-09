@@ -114,6 +114,7 @@ class TestRoadmapHappyPath:
                 "next_checkup_days": 14,
                 "timestamp": "2024-01-01T00:00:00Z",
                 "session_id": "s-1",
+                "screen_time_insights": None,
             },
         )()
 
@@ -152,6 +153,7 @@ class TestRoadmapHappyPath:
                 "next_checkup_days": 14,
                 "timestamp": "2024-06-15T12:00:00Z",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -177,6 +179,7 @@ class TestRoadmapHappyPath:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -221,6 +224,7 @@ class TestRoadmapCrisisPath:
                 "next_checkup_days": 1,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -264,6 +268,7 @@ class TestRoadmapContractSnapshot:
                 "next_checkup_days": 14,
                 "timestamp": "2024-01-01T00:00:00Z",
                 "session_id": "s-1",
+                "screen_time_insights": None,
             },
         )()
 
@@ -285,6 +290,7 @@ class TestRoadmapContractSnapshot:
             "generated_at",
             "session_id",
             "version",
+            "screen_time_insights",
         }
         assert fields == expected, (
             f"Contract changed! Extra: {fields - expected}, Missing: {expected - fields}"
@@ -307,6 +313,7 @@ class TestRoadmapContractSnapshot:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -350,6 +357,7 @@ class TestRoadmapLocale:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -376,6 +384,7 @@ class TestRoadmapLocale:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -410,6 +419,7 @@ class TestRoadmapTopN:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -439,6 +449,7 @@ class TestRoadmapTopN:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 
@@ -474,6 +485,7 @@ class TestRoadmapEmptyAnswers:
                 "next_checkup_days": 14,
                 "timestamp": "t",
                 "session_id": None,
+                "screen_time_insights": None,
             },
         )()
 

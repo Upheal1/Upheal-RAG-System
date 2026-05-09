@@ -2,12 +2,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from services.gateway.orchestrator import run_assessment_chain
 from services.gateway.schemas import RoadmapRequest, RoadmapResponse
 from services.shared.logging import get_logger
-from services.shared.schemas import AssessGatewayResponse
+from services.shared.schemas import AssessGatewayResponse, ScreenTimeData, ScreenTimeInsights
 from services.assessment.router import router as assessment_router
 from services.knowledge_base.router import router as kb_router
 from services.architect.router import router as architect_router
@@ -24,6 +25,14 @@ app = FastAPI(
     description="In-process microservices scaffolding (gateway orchestrates domain modules).",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class AssessRequest(BaseModel):
     """
@@ -36,6 +45,9 @@ class AssessRequest(BaseModel):
     - `answers`: optional; merged into `raw_forms_json` as `answers` when provided
       (supports legacy clients that send top-level `answers` only).
     - `screen_time_minutes`: drives sigmoid R_app in `UserContext.app_exposure_ratios`.
+    - `screenTimeData`: rich per-app screen time from Flutter. When provided,
+      `screen_time_minutes` is derived from `totalMinutes` and the parser computes
+      `social_ratio` / `productivity_ratio` for enhanced `r_app`.
     """
 
     user_id: str
@@ -45,6 +57,7 @@ class AssessRequest(BaseModel):
         default_factory=dict
     )
     screen_time_minutes: float = 0.0
+    screenTimeData: Optional[ScreenTimeData] = None
     answers: Optional[Dict[str, int]] = None
 
 
@@ -59,6 +72,8 @@ class HealthResponse(BaseModel):
 try:  # pragma: no cover
     AssessRequest.model_rebuild()
     AssessGatewayResponse.model_rebuild()
+    RoadmapRequest.model_rebuild()
+    RoadmapResponse.model_rebuild()
 except Exception:
     pass
 
@@ -86,13 +101,18 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
             else:
                 raw_payload = {"answers": req.answers}
 
+        effective_screen_time = req.screen_time_minutes
+        if req.screenTimeData is not None and req.screenTimeData.totalMinutes > 0:
+            effective_screen_time = req.screenTimeData.totalMinutes
+
         return run_assessment_chain(
             user_id=req.user_id,
             raw_payload=raw_payload,
-            screen_time_minutes=req.screen_time_minutes,
+            screen_time_minutes=effective_screen_time,
             locale=req.locale,
             session_id=req.session_id,
             answers=req.answers,
+            screen_time_data=req.screenTimeData,
         )
     except HTTPException:
         raise
@@ -118,15 +138,24 @@ def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
             else:
                 raw_payload = {"answers": req.answers}
 
+        effective_screen_time = req.screen_time_minutes
+        if req.screenTimeData is not None and req.screenTimeData.totalMinutes > 0:
+            effective_screen_time = req.screenTimeData.totalMinutes
+
         chain_response = run_assessment_chain(
             user_id=req.user_id,
             raw_payload=raw_payload,
-            screen_time_minutes=req.screen_time_minutes,
+            screen_time_minutes=effective_screen_time,
             locale=req.locale,
             session_id=req.session_id,
             answers=req.answers,
             top_n=req.top_n,
+            screen_time_data=req.screenTimeData,
         )
+
+        road_screen_insights = None
+        if chain_response.screen_time_insights is not None:
+            road_screen_insights = chain_response.screen_time_insights
 
         roadmap = RoadmapResponse(
             user_id=chain_response.user_id,
@@ -136,6 +165,7 @@ def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
             next_checkup_days=chain_response.next_checkup_days,
             generated_at=chain_response.timestamp,
             session_id=chain_response.session_id,
+            screen_time_insights=road_screen_insights,
         )
         return roadmap
     except HTTPException:

@@ -3,11 +3,11 @@
 -- Part of: A-HOZ-10 Supabase Migrations — expanded schema
 -- Created: 2026-05-01
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Users table (auth service baseline, minimal)
 CREATE TABLE users (
-    id          UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    id          UUID        NOT NULL DEFAULT gen_random_uuid(),
     email       TEXT        NOT NULL UNIQUE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -19,7 +19,7 @@ CREATE INDEX idx_users_email ON users(email);
 
 -- User clinical profiles
 CREATE TABLE user_profiles (
-    id                  UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    id                  UUID        NOT NULL DEFAULT gen_random_uuid(),
     user_id             UUID        NOT NULL UNIQUE,
     screen_time_minutes INTEGER     NOT NULL DEFAULT 0,
     gad7_score          INTEGER     NOT NULL DEFAULT 0,

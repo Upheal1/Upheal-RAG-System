@@ -3,10 +3,10 @@
 -- Part of: A-HOZ-10 Supabase Migrations — expanded schema
 -- Created: 2026-05-01
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 CREATE TABLE assessment_responses (
-    id              UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    id              UUID        NOT NULL DEFAULT gen_random_uuid(),
     user_id         UUID        NOT NULL,
     locale          TEXT        NOT NULL DEFAULT 'en',
     form_payload    JSONB       NOT NULL,

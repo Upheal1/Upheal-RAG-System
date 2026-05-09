@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from services.shared.schemas import ClinicalTask
+from services.shared.schemas import ClinicalTask, ScreenTimeData, ScreenTimeInsights
 
 
 class RoadmapRequest(BaseModel):
@@ -20,6 +20,8 @@ class RoadmapRequest(BaseModel):
 
     - `user_id` (required): stable identifier for the caller.
     - `screen_time_minutes`: drives sigmoid R_app in personalization.
+    - `screenTimeData`: rich per-app screen time from Flutter. When provided,
+      `screen_time_minutes` is derived from `totalMinutes`.
     - `answers`: optional GAD-7/PHQ-9 answers dict for form-based scoring.
     - `top_n`: number of tasks to include in the roadmap (1-10).
     """
@@ -29,6 +31,7 @@ class RoadmapRequest(BaseModel):
     locale: str = "en"
     raw_forms_json: Dict[str, Any] = Field(default_factory=dict)
     screen_time_minutes: float = 0.0
+    screenTimeData: Optional[ScreenTimeData] = None
     answers: Optional[Dict[str, int]] = None
     top_n: int = Field(default=5, ge=1, le=10)
 
@@ -49,3 +52,4 @@ class RoadmapResponse(BaseModel):
     generated_at: str
     session_id: Optional[str] = None
     version: str = "1.0"
+    screen_time_insights: Optional[ScreenTimeInsights] = None

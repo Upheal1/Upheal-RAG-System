@@ -4,7 +4,7 @@
 -- Created: 2026-05-01
 
 -- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Interaction type enum
 CREATE TYPE interaction_type AS ENUM (
@@ -16,7 +16,7 @@ CREATE TYPE interaction_type AS ENUM (
 
 -- Main interaction logs table
 CREATE TABLE interaction_logs (
-    log_id          UUID        NOT NULL DEFAULT uuid_generate_v4(),
+    log_id          UUID        NOT NULL DEFAULT gen_random_uuid(),
     user_id         UUID        NOT NULL,
     task_id         UUID        NOT NULL,
     interaction_type interaction_type NOT NULL,
