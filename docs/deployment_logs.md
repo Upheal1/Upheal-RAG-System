@@ -1,5 +1,61 @@
 # UpHeal Deployment Logs
 
+## Task 1A: RLS Policies — Migration 012
+
+**Date:** 2026-05-12  
+**Owner:** Yehia (Y) — taking over for Hozaifa  
+**Status:** ✅ Completed
+
+### Dependencies
+- **Depends on:** Nothing
+
+### Changes Made
+
+#### 1. Created `supabase/migrations/012_enable_rls_policies.sql`
+- Enable RLS on all user-facing tables
+- Create policies for:
+  - `users` — user can read/update/insert own row only
+  - `user_profiles` — own profile only
+  - `assessment_responses` — own responses only
+  - `roadmaps` — own roadmaps only
+  - `roadmap_tasks` — access via roadmap ownership
+  - `interest_profiles` — own profile only
+  - `chat_sessions` — own sessions only
+  - `chat_messages` — access via session ownership
+  - `interaction_logs` — own logs only
+  - `xp_transactions` — own transactions only
+  - `retrieval_logs` — own logs only
+  - `roadmap_mutations` — own mutations only
+  - `clinical_tasks` — read-only for authenticated
+  - `retention_settings` — service role only (no access)
+
+#### 2. Updated `supabase/combined_migrations.sql`
+- Appended migration 012
+
+#### 3. Updated `supabase/README.md`
+- Added migration 012 to the migration order table
+
+### Security Notes
+- Without RLS, anyone with the anon key can read/write every table
+- This is the single biggest security gap
+- All policies use `auth.uid() = user_id` for ownership validation
+
+### Files Changed
+```
+Added:
+  - supabase/migrations/012_enable_rls_policies.sql
+
+Modified:
+  - supabase/combined_migrations.sql
+  - supabase/README.md
+```
+
+### Next Steps
+- Run migration on Supabase: `supabase db push` or `psql`
+- Proceed to task 1B (Startup Environment Validation)
+
+---
+
 ## Task 1D: Wire Auth on Core Endpoints
 
 **Date:** 2026-05-12  
