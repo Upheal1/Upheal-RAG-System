@@ -1,14 +1,20 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from services.gateway.auth_middleware import AuthenticatedUser, get_current_user
 
 from services.gateway.orchestrator import run_assessment_chain
 from services.gateway.schemas import RoadmapRequest, RoadmapResponse
 from services.shared.logging import get_logger
-from services.shared.schemas import AssessGatewayResponse, ScreenTimeData, ScreenTimeInsights
+from services.shared.schemas import (
+    AssessGatewayResponse,
+    ScreenTimeData,
+    ScreenTimeInsights,
+)
 from services.assessment.router import router as assessment_router
 from services.knowledge_base.router import router as kb_router
 from services.architect.router import router as architect_router
@@ -91,7 +97,11 @@ def health_check() -> HealthResponse:
 
 
 @app.post("/api/assess", response_model=AssessGatewayResponse, tags=["assessment"])
-def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
+def assess(
+    payload: Dict[str, Any],
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AssessGatewayResponse:
     try:
         req = AssessRequest.model_validate(payload)
         raw_payload: Any = req.raw_forms_json
@@ -106,7 +116,7 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
             effective_screen_time = req.screenTimeData.totalMinutes
 
         return run_assessment_chain(
-            user_id=req.user_id,
+            user_id=user.user_id,
             raw_payload=raw_payload,
             screen_time_minutes=effective_screen_time,
             locale=req.locale,
@@ -122,7 +132,10 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
 
 
 @app.post("/api/roadmap", response_model=RoadmapResponse, tags=["roadmap"])
-def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
+def generate_roadmap(
+    payload: Dict[str, Any],
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> RoadmapResponse:
     """
     Generate a personalized clinical roadmap.
 
@@ -143,7 +156,7 @@ def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
             effective_screen_time = req.screenTimeData.totalMinutes
 
         chain_response = run_assessment_chain(
-            user_id=req.user_id,
+            user_id=user.user_id,
             raw_payload=raw_payload,
             screen_time_minutes=effective_screen_time,
             locale=req.locale,
