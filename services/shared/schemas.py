@@ -100,6 +100,34 @@ class ScreenTimeInsights(BaseModel):
     topProductivityApps: List[str] = Field(default_factory=list)
 
 
+class RoadmapDay(BaseModel):
+    """
+    A single day in a 90-day roadmap.
+
+    - day_number: 1-90
+    - task: The assigned clinical task for this day
+    - phase: Quick Win / Ladder / Boss
+    - day_context: Contextual description for variety (e.g., "morning routine")
+    """
+
+    day_number: int = Field(..., ge=1, le=90)
+    task: ClinicalTask
+    phase: Literal["Quick Win", "Ladder", "Boss"]
+    day_context: str = ""
+
+
+class ReassessmentStatus(BaseModel):
+    """Status check for whether user needs to retake assessment."""
+
+    user_id: str
+    roadmap_id: Optional[str] = None
+    roadmap_status: Optional[str] = None
+    current_day: Optional[int] = None
+    total_days: int = 90
+    assessment_required: bool = False
+    days_since_last_assessment: Optional[int] = None
+
+
 class AssessGatewayResponse(FinalRoadmap):
     """
     `POST /api/assess` response: full roadmap plus legacy clinical/RAG fields.

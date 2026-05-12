@@ -11,7 +11,12 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from services.shared.schemas import ClinicalTask, ScreenTimeData, ScreenTimeInsights
+from services.shared.schemas import (
+    ClinicalTask,
+    RoadmapDay,
+    ScreenTimeData,
+    ScreenTimeInsights,
+)
 
 
 class RoadmapRequest(BaseModel):
@@ -53,3 +58,6 @@ class RoadmapResponse(BaseModel):
     session_id: Optional[str] = None
     version: str = "1.0"
     screen_time_insights: Optional[ScreenTimeInsights] = None
+    days: List[RoadmapDay] = Field(default_factory=list)
+    total_days: int = 90
+    assessment_required: bool = False

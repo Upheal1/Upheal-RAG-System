@@ -53,3 +53,46 @@ Added:
 - Merge to staging branch
 - Coordinate with frontend team (Abdalrahman) for JWT token integration
 - Proceed to task 2A (Roadmap Schemas)
+
+---
+
+## Task 2A: Roadmap Schemas
+
+**Date:** 2026-05-12  
+**Owner:** Yehia (Y)  
+**Status:** ✅ Completed
+
+### Dependencies
+- **Depends on:** Nothing (can start in parallel)
+
+### Changes Made
+
+#### 1. Modified `services/shared/schemas.py`
+- Added `RoadmapDay` class with fields: `day_number`, `task`, `phase`, `day_context`
+- Added `ReassessmentStatus` class with fields: `user_id`, `roadmap_id`, `roadmap_status`, `current_day`, `total_days`, `assessment_required`, `days_since_last_assessment`
+
+#### 2. Modified `services/gateway/schemas.py`
+- Updated `RoadmapResponse` to include:
+  - `days: List[RoadmapDay]` - list of 90 days
+  - `total_days: int = 90` - default 90
+  - `assessment_required: bool = False` - whether user needs reassessment
+
+#### 3. Created `tests/test_roadmap_schemas.py`
+- 13 passing unit tests covering:
+  - RoadmapDay validation (day_number bounds, phase values)
+  - ReassessmentStatus defaults and fields
+  - RoadmapResponse with 90-day roadmap
+  - RoadmapRequest validation
+
+### Files Changed
+```
+Modified:
+  - services/shared/schemas.py
+  - services/gateway/schemas.py
+
+Added:
+  - tests/test_roadmap_schemas.py
+```
+
+### Next Steps
+- Proceed to task 2D (Roadmap Status + Re-Assessment Endpoint) — depends on 2A
