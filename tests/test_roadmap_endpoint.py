@@ -300,6 +300,9 @@ class TestRoadmapContractSnapshot:
             "session_id",
             "version",
             "screen_time_insights",
+            "days",
+            "total_days",
+            "assessment_required",
         }
         assert fields == expected, (
             f"Contract changed! Extra: {fields - expected}, Missing: {expected - fields}"
