@@ -17,8 +17,16 @@ from services.assessment.core import (
     parse_screen_time_data,
     sigmoid_r_app,
 )
+from services.gateway.auth_middleware import get_current_user, AuthenticatedUser
 from services.gateway.main import app
 from services.shared.schemas import ScreenTimeAppUsage, ScreenTimeData
+
+
+def override_get_current_user():
+    return AuthenticatedUser(user_id="test-user-001", email="test@example.com")
+
+
+app.dependency_overrides[get_current_user] = override_get_current_user
 
 
 # ---------------------------------------------------------------------------
@@ -33,10 +41,18 @@ class TestScreenTimeDataParsing:
             socialMinutes=45.0,
             productivityMinutes=30.0,
             dailyUsage=[
-                ScreenTimeAppUsage(packageName="com.instagram.android", usageTime=30, category="social"),
-                ScreenTimeAppUsage(packageName="com.whatsapp", usageTime=15, category="social"),
-                ScreenTimeAppUsage(packageName="com.google.docs", usageTime=25, category="productivity"),
-                ScreenTimeAppUsage(packageName="com.chrome", usageTime=50, category="other"),
+                ScreenTimeAppUsage(
+                    packageName="com.instagram.android", usageTime=30, category="social"
+                ),
+                ScreenTimeAppUsage(
+                    packageName="com.whatsapp", usageTime=15, category="social"
+                ),
+                ScreenTimeAppUsage(
+                    packageName="com.google.docs", usageTime=25, category="productivity"
+                ),
+                ScreenTimeAppUsage(
+                    packageName="com.chrome", usageTime=50, category="other"
+                ),
             ],
         )
         parsed = parse_screen_time_data(data)
@@ -98,8 +114,12 @@ class TestScreenTimeDataParsing:
             socialMinutes=30.0,
             productivityMinutes=20.0,
             dailyUsage=[
-                ScreenTimeAppUsage(packageName="com.instagram.android", usageTime=20, category="social"),
-                ScreenTimeAppUsage(packageName="com.slack", usageTime=15, category="productivity"),
+                ScreenTimeAppUsage(
+                    packageName="com.instagram.android", usageTime=20, category="social"
+                ),
+                ScreenTimeAppUsage(
+                    packageName="com.slack", usageTime=15, category="productivity"
+                ),
             ],
         )
         insights = build_screen_time_insights(data)
@@ -321,18 +341,41 @@ class TestAssessEndpointWithScreenTime:
                 "socialMinutes": 30.0,
                 "productivityMinutes": 20.0,
                 "dailyUsage": [
-                    {"packageName": "com.instagram.android", "usageTime": 20, "category": "social"},
-                    {"packageName": "com.whatsapp", "usageTime": 10, "category": "social"},
-                    {"packageName": "com.slack", "usageTime": 15, "category": "productivity"},
+                    {
+                        "packageName": "com.instagram.android",
+                        "usageTime": 20,
+                        "category": "social",
+                    },
+                    {
+                        "packageName": "com.whatsapp",
+                        "usageTime": 10,
+                        "category": "social",
+                    },
+                    {
+                        "packageName": "com.slack",
+                        "usageTime": 15,
+                        "category": "productivity",
+                    },
                     {"packageName": "com.chrome", "usageTime": 45, "category": "other"},
                 ],
             },
             "answers": {
-                "gad7_q1": 2, "gad7_q2": 1, "gad7_q3": 2,
-                "gad7_q4": 1, "gad7_q5": 2, "gad7_q6": 1, "gad7_q7": 0,
-                "phq9_q1": 1, "phq9_q2": 0, "phq9_q3": 2,
-                "phq9_q4": 1, "phq9_q5": 0, "phq9_q6": 1,
-                "phq9_q7": 0, "phq9_q8": 1, "phq9_q9": 0,
+                "gad7_q1": 2,
+                "gad7_q2": 1,
+                "gad7_q3": 2,
+                "gad7_q4": 1,
+                "gad7_q5": 2,
+                "gad7_q6": 1,
+                "gad7_q7": 0,
+                "phq9_q1": 1,
+                "phq9_q2": 0,
+                "phq9_q3": 2,
+                "phq9_q4": 1,
+                "phq9_q5": 0,
+                "phq9_q6": 1,
+                "phq9_q7": 0,
+                "phq9_q8": 1,
+                "phq9_q9": 0,
             },
         }
 
@@ -354,11 +397,22 @@ class TestAssessEndpointWithScreenTime:
             "locale": "en",
             "screen_time_minutes": 120.0,
             "answers": {
-                "gad7_q1": 0, "gad7_q2": 0, "gad7_q3": 0,
-                "gad7_q4": 0, "gad7_q5": 0, "gad7_q6": 0, "gad7_q7": 0,
-                "phq9_q1": 0, "phq9_q2": 0, "phq9_q3": 0,
-                "phq9_q4": 0, "phq9_q5": 0, "phq9_q6": 0,
-                "phq9_q7": 0, "phq9_q8": 0, "phq9_q9": 0,
+                "gad7_q1": 0,
+                "gad7_q2": 0,
+                "gad7_q3": 0,
+                "gad7_q4": 0,
+                "gad7_q5": 0,
+                "gad7_q6": 0,
+                "gad7_q7": 0,
+                "phq9_q1": 0,
+                "phq9_q2": 0,
+                "phq9_q3": 0,
+                "phq9_q4": 0,
+                "phq9_q5": 0,
+                "phq9_q6": 0,
+                "phq9_q7": 0,
+                "phq9_q8": 0,
+                "phq9_q9": 0,
             },
         }
         response = client.post("/api/assess", json=payload)
@@ -385,17 +439,40 @@ class TestRoadmapEndpointWithScreenTime:
                 "socialMinutes": 80.0,
                 "productivityMinutes": 30.0,
                 "dailyUsage": [
-                    {"packageName": "com.instagram.android", "usageTime": 50, "category": "social"},
-                    {"packageName": "com.tiktok", "usageTime": 30, "category": "social"},
-                    {"packageName": "com.google.docs", "usageTime": 25, "category": "productivity"},
+                    {
+                        "packageName": "com.instagram.android",
+                        "usageTime": 50,
+                        "category": "social",
+                    },
+                    {
+                        "packageName": "com.tiktok",
+                        "usageTime": 30,
+                        "category": "social",
+                    },
+                    {
+                        "packageName": "com.google.docs",
+                        "usageTime": 25,
+                        "category": "productivity",
+                    },
                 ],
             },
             "answers": {
-                "gad7_q1": 1, "gad7_q2": 1, "gad7_q3": 1,
-                "gad7_q4": 1, "gad7_q5": 1, "gad7_q6": 0, "gad7_q7": 0,
-                "phq9_q1": 0, "phq9_q2": 0, "phq9_q3": 1,
-                "phq9_q4": 1, "phq9_q5": 0, "phq9_q6": 1,
-                "phq9_q7": 0, "phq9_q8": 0, "phq9_q9": 0,
+                "gad7_q1": 1,
+                "gad7_q2": 1,
+                "gad7_q3": 1,
+                "gad7_q4": 1,
+                "gad7_q5": 1,
+                "gad7_q6": 0,
+                "gad7_q7": 0,
+                "phq9_q1": 0,
+                "phq9_q2": 0,
+                "phq9_q3": 1,
+                "phq9_q4": 1,
+                "phq9_q5": 0,
+                "phq9_q6": 1,
+                "phq9_q7": 0,
+                "phq9_q8": 0,
+                "phq9_q9": 0,
             },
             "top_n": 3,
         }
