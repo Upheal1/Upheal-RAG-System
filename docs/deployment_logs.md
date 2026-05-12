@@ -96,3 +96,48 @@ Added:
 
 ### Next Steps
 - Proceed to task 2D (Roadmap Status + Re-Assessment Endpoint) — depends on 2A
+
+---
+
+## Task 2D: Roadmap Status + Re-Assessment Endpoint
+
+**Date:** 2026-05-12  
+**Owner:** Yehia (Y)  
+**Status:** ✅ Completed
+
+### Dependencies
+- **Depends on:** 1D (auth wired), 2A (schemas)
+
+### Changes Made
+
+#### 1. Created `services/roadmap/router.py`
+- New router with `GET /{user_id}/status` endpoint
+- Returns `ReassessmentStatus` with roadmap info
+- Auth required (user can only access own status)
+- Handles edge cases: no roadmap, completed, expired
+
+#### 2. Modified `services/gateway/main.py`
+- Added import for `services.roadmap.router`
+- Registered roadmap router at `/api/roadmap` prefix
+
+#### 3. Created `tests/test_roadmap_status.py`
+- 6 passing tests covering:
+  - No roadmap returns assessment_required=True
+  - Active roadmap under 90 days
+  - Roadmap over 90 days
+  - Completed roadmap
+  - Auth required
+  - Health endpoint
+
+### Files Changed
+```
+Modified:
+  - services/gateway/main.py
+
+Added:
+  - services/roadmap/router.py
+  - tests/test_roadmap_status.py
+```
+
+### Next Steps
+- Proceed to task 2E (Supabase Migration for 90-Day Roadmap)
