@@ -14,6 +14,10 @@ SQL migrations for Upheal's Supabase PostgreSQL instance. Apply in order (prefix
 | 006 | `006_create_assessment_responses.sql` | Raw form submissions |
 | 007 | `007_create_interest_profiles.sql` | Director interest profiles |
 | 008 | `008_add_foreign_keys.sql` | FK constraints on existing tables |
+| 009 | `009_create_retrieval_logs_and_chat.sql` | Retrieval logs + chat tables |
+| 010 | `010_add_data_retention_cleanup.sql` | Data retention policies |
+| 011 | `011_fix_security_definer_functions.sql` | Fix security definer exposure |
+| 012 | `012_enable_rls_policies.sql` | Enable RLS on all tables |
 
 ## Schema Map
 
