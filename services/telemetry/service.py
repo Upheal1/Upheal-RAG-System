@@ -76,6 +76,8 @@ class TelemetryService:
             "completion_time": request.completion_time,
             "drop_off_point": request.drop_off_point,
             "xp_earned": request.xp_earned,
+            "user_rating": request.user_rating,
+            "feedback_text": request.feedback_text,
         }
 
         if request.dedupe_key:

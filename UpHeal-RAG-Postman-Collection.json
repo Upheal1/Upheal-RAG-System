@@ -1,0 +1,498 @@
+{
+  "info": {
+    "name": "UpHeal RAG API",
+    "description": "Postman collection for testing the UpHeal RAG System API. Includes endpoints for health checks, assessments, roadmaps, and chat.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the API and RAG system are running properly"
+          },
+          "response": []
+        },
+        {
+          "name": "Assessment Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assessment/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["assessment", "health"]
+            },
+            "description": "Check assessment service health"
+          },
+          "response": []
+        },
+        {
+          "name": "Knowledge Base Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/knowledge_base/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["knowledge_base", "health"]
+            },
+            "description": "Check knowledge base (ChromaDB) health"
+          },
+          "response": []
+        }
+      ],
+      "description": "Health check endpoints - no authentication required"
+    },
+    {
+      "name": "02. Assessment & Roadmap",
+      "item": [
+        {
+          "name": "Submit Assessment (Minimal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"test_user_001\",\n  \"answers\": {\n    \"gad7_q1\": 2,\n    \"gad7_q2\": 1,\n    \"phq9_q1\": 1,\n    \"phq9_q2\": 0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assess"]
+            },
+            "description": "Submit a minimal assessment with just a few answers"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Assessment (Full GAD-7 + PHQ-9)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"test_user_002\",\n  \"session_id\": \"session_001\",\n  \"locale\": \"en\",\n  \"answers\": {\n    \"gad7_q1\": 2,\n    \"gad7_q2\": 3,\n    \"gad7_q3\": 2,\n    \"gad7_q4\": 1,\n    \"gad7_q5\": 2,\n    \"gad7_q6\": 1,\n    \"gad7_q7\": 2,\n    \"phq9_q1\": 1,\n    \"phq9_q2\": 2,\n    \"phq9_q3\": 1,\n    \"phq9_q4\": 0,\n    \"phq9_q5\": 1,\n    \"phq9_q6\": 2,\n    \"phq9_q7\": 1,\n    \"phq9_q8\": 0,\n    \"phq9_q9\": 0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assess"]
+            },
+            "description": "Submit full GAD-7 (7 questions) and PHQ-9 (9 questions) assessments"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Assessment (With Screen Time)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"test_user_003\",\n  \"session_id\": \"session_002\",\n  \"locale\": \"en\",\n  \"answers\": {\n    \"gad7_q1\": 3,\n    \"gad7_q2\": 2,\n    \"gad7_q3\": 3,\n    \"phq9_q1\": 2,\n    \"phq9_q2\": 2,\n    \"phq9_q3\": 1\n  },\n  \"screen_time_minutes\": 240,\n  \"screenTimeData\": {\n    \"totalMinutes\": 240,\n    \"socialMinutes\": 180,\n    \"productivityMinutes\": 60,\n    \"dailyUsage\": [\n      {\"packageName\": \"com.instagram.android\", \"usageTime\": 120, \"category\": \"social\"},\n      {\"packageName\": \"com.whatsapp\", \"usageTime\": 60, \"category\": \"social\"},\n      {\"packageName\": \"com.microsoft.office.word\", \"usageTime\": 45, \"category\": \"productivity\"},\n      {\"packageName\": \"com.google.android.gm\", \"usageTime\": 15, \"category\": \"productivity\"}\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assess",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assess"]
+            },
+            "description": "Submit assessment with screen time data (simulates mobile app data)"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Roadmap",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"test_user_004\",\n  \"session_id\": \"session_003\",\n  \"locale\": \"en\",\n  \"answers\": {\n    \"gad7_q1\": 2,\n    \"gad7_q2\": 3,\n    \"phq9_q1\": 1,\n    \"phq9_q2\": 2\n  },\n  \"top_n\": 5,\n  \"screen_time_minutes\": 180\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roadmap",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roadmap"]
+            },
+            "description": "Generate a personalized clinical roadmap based on assessment"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Roadmap (High Anxiety)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"test_user_005\",\n  \"locale\": \"en\",\n  \"answers\": {\n    \"gad7_q1\": 3,\n    \"gad7_q2\": 3,\n    \"gad7_q3\": 3,\n    \"gad7_q4\": 2,\n    \"gad7_q5\": 3,\n    \"gad7_q6\": 2,\n    \"gad7_q7\": 3,\n    \"phq9_q1\": 2,\n    \"phq9_q2\": 2,\n    \"phq9_q3\": 1\n  },\n  \"top_n\": 7\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roadmap",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roadmap"]
+            },
+            "description": "Test with high anxiety scores to see different recommendations"
+          },
+          "response": []
+        }
+      ],
+      "description": "Assessment and roadmap generation endpoints"
+    },
+    {
+      "name": "03. Knowledge Base (RAG)",
+      "item": [
+        {
+          "name": "Query Knowledge Base",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"anxiety treatment techniques cognitive behavioral therapy\",\n  \"top_k\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/knowledge_base/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["knowledge_base", "query"]
+            },
+            "description": "Query the RAG knowledge base directly for relevant documents"
+          },
+          "response": []
+        },
+        {
+          "name": "Query - Depression",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"depression symptoms and treatment interventions\",\n  \"top_k\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/knowledge_base/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["knowledge_base", "query"]
+            },
+            "description": "Query for depression-related information"
+          },
+          "response": []
+        },
+        {
+          "name": "Query - Panic Attacks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"panic attack management breathing exercises\",\n  \"top_k\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/knowledge_base/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["knowledge_base", "query"]
+            },
+            "description": "Query for panic attack management techniques"
+          },
+          "response": []
+        }
+      ],
+      "description": "Direct knowledge base queries using RAG"
+    },
+    {
+      "name": "04. Chat (Requires Auth)",
+      "item": [
+        {
+          "name": "Send Chat Message (New Session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"I'm feeling anxious about my upcoming exam. What can I do?\",\n  \"session_id\": null,\n  \"roadmap_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "chat"]
+            },
+            "description": "Start a new chat session. Set session_id to null to create a new session."
+          },
+          "response": []
+        },
+        {
+          "name": "Send Chat Message (Continue Session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Can you give me some breathing exercises?\",\n  \"session_id\": \"{{sessionId}}\",\n  \"roadmap_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "chat"]
+            },
+            "description": "Continue an existing chat session. Replace {{sessionId}} with the session ID from the previous response."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Chat History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/chat/{{sessionId}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "chat", "{{sessionId}}", "history"]
+            },
+            "description": "Get the full message history for a chat session"
+          },
+          "response": []
+        }
+      ],
+      "description": "Chat endpoints - requires JWT authentication"
+    },
+    {
+      "name": "05. Roadmap Management (Requires Auth)",
+      "item": [
+        {
+          "name": "Get Current Roadmap",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/roadmap/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roadmap", "{{userId}}"]
+            },
+            "description": "Get the current active roadmap for a user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Roadmap History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/roadmap/{{userId}}/history?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roadmap", "{{userId}}", "history"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get the history of roadmaps for a user"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwtToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"completed_at\": \"2025-01-15T10:30:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roadmap/{{roadmapId}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roadmap", "{{roadmapId}}", "tasks", "{{taskId}}"]
+            },
+            "description": "Update the status of a roadmap task"
+          },
+          "response": []
+        }
+      ],
+      "description": "Roadmap management endpoints - requires authentication"
+    },
+    {
+      "name": "06. Architect & Ingestion",
+      "item": [
+        {
+          "name": "Architect Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/architect/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["architect", "health"]
+            },
+            "description": "Check architect service health"
+          },
+          "response": []
+        },
+        {
+          "name": "Ingestion Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ingestion/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["ingestion", "health"]
+            },
+            "description": "Check ingestion service health"
+          },
+          "response": []
+        }
+      ],
+      "description": "Additional service health checks"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL for the UpHeal API"
+    },
+    {
+      "key": "jwtToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.test",
+      "type": "string",
+      "description": "JWT token for authentication (development test token)"
+    },
+    {
+      "key": "userId",
+      "value": "1234567890",
+      "type": "string",
+      "description": "Test user ID"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string",
+      "description": "Chat session ID (set automatically from chat responses)"
+    },
+    {
+      "key": "roadmapId",
+      "value": "",
+      "type": "string",
+      "description": "Roadmap ID"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string",
+      "description": "Task ID"
+    }
+  ]
+}
