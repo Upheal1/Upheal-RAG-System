@@ -334,3 +334,46 @@ Added:
 - 5D: Deploy to Railway
 - 6A: Lock CORS (after deployment URL known)
 - 6B: Rate Limiting (Yahya)
+
+---
+
+## Task 5C: Run Supabase Migrations - PRODUCTION COMPLETE
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? COMPLETED ON PRODUCTION
+
+### Execution Method
+Applied via Supabase Dashboard SQL Editor (Option 1)
+
+### Migrations Applied
+- **012_enable_rls_policies.sql** - RLS policies on all tables
+- **013_roadmap_ninety_day.sql** - 90-day roadmap columns + auth trigger
+
+### Verification SQL (Run in Supabase SQL Editor)
+`sql
+-- Verify roadmaps table has new columns
+SELECT column_name, data_type, column_default
+FROM information_schema.columns
+WHERE table_name = 'roadmaps'
+AND column_name IN ('total_days', 'current_day');
+
+-- Expected output:
+-- total_days | integer | 90
+-- current_day | integer | 1
+
+-- Verify trigger exists
+SELECT trigger_name, event_manipulation
+FROM information_schema.triggers
+WHERE trigger_name = 'on_auth_user_created';
+
+-- Expected output:
+-- on_auth_user_created | INSERT
+`
+
+### Next Steps
+- ? 5C Complete
+- ? 5D: Deploy to Railway
+- ? 5B: Set Railway Secrets (SUPABASE_JWT_SECRET, UPHEAL_SUPABASE_KEY)
+
+---
