@@ -12,6 +12,7 @@ from services.shared.schemas import (
     ClinicalTask,
     FinalRoadmap,
     RetrievalQuery,
+    RoadmapDay,
     UserContext,
 )
 
@@ -242,6 +243,71 @@ def _sequence_tasks(
     return sorted_tasks
 
 
+def generate_ninety_day_plan(
+    candidates: List[ClinicalTask],
+    user_context: UserContext,
+    total_days: int = 90,
+) -> List[RoadmapDay]:
+    """
+    Generate a 90-day roadmap with 1 task per day.
+
+    Phase allocation:
+      Days 1-7   → Quick Win  (difficulty 1-2)
+      Days 8-30  → Ladder     (difficulty 3)
+      Days 31-90 → Boss       (difficulty 4-5)
+
+    When unique tasks are exhausted within a phase, repeat with
+    day-specific context labels to give each repetition a fresh lens.
+    """
+    PHASES = [
+        ("Quick Win", 1, 7, [1, 2]),    # days 1-7, difficulty 1-2
+        ("Ladder", 8, 30, [3]),           # days 8-30, difficulty 3
+        ("Boss", 31, 90, [4, 5]),         # days 31-90, difficulty 4-5
+    ]
+
+    DAY_CONTEXTS = [
+        "morning routine",
+        "midday check-in",
+        "evening wind-down",
+        "stress relief",
+        "focus boost",
+        "pre-sleep calm",
+        "weekend reset",
+        "commute companion",
+        "mindful break",
+    ]
+
+    days = []
+    for phase_name, start_day, end_day, difficulties in PHASES:
+        phase_candidates = [t for t in candidates if t.difficulty in difficulties]
+
+        # Fallback: if no candidates match this phase's difficulty,
+        # use all candidates (don't leave days empty)
+        if not phase_candidates:
+            phase_candidates = list(candidates)
+
+        day_in_phase = 0
+        for day_num in range(start_day, end_day + 1):
+            # Cycle through candidates with rotation
+            idx = day_in_phase % len(phase_candidates)
+            task = phase_candidates[idx]
+
+            # Apply day context for variety when repeating
+            context_idx = day_in_phase % len(DAY_CONTEXTS)
+
+            days.append(
+                RoadmapDay(
+                    day_number=day_num,
+                    task=task,
+                    phase=phase_name,
+                    day_context=DAY_CONTEXTS[context_idx],
+                )
+            )
+            day_in_phase += 1
+
+    return days
+
+
 def build_overview_paragraph(
     user_context: UserContext, suggested_tasks: Sequence[ClinicalTask]
 ) -> str:
@@ -305,12 +371,25 @@ def run_architect_pipeline(
     # Gamifier slot (A-YAH-06) — pass-through for now.
     suggested = _sequence_tasks(suggested, user_context)
 
+    # Generate 90-day plan from all candidates (not just top_n)
+    ninety_day_plan = generate_ninety_day_plan(
+        list(pre_filtered),
+        user_context,
+        total_days=90,
+    )
+
+    # Determine next checkup based on current phase (first day = Quick Win)
+    next_checkup = 7  # Quick Win phase checkup
+
     draft = FinalRoadmap(
         user_id=user_context.user_id,
         overview_paragraph=build_overview_paragraph(user_context, suggested),
         suggested_tasks=list(suggested),
         safety_status="GREEN",
-        next_checkup_days=14,
+        next_checkup_days=next_checkup,
+        days=ninety_day_plan,
+        total_days=90,
+        assessment_required=False,
     )
 
     resolved_locale = retrieval_query.locale if retrieval_query else locale

@@ -77,6 +77,9 @@ class FinalRoadmap(BaseModel):
     suggested_tasks: List[ClinicalTask] = Field(default_factory=list)
     safety_status: Literal["GREEN", "YELLOW", "RED"]
     next_checkup_days: int
+    days: List[RoadmapDay] = Field(default_factory=list)
+    total_days: int = 90
+    assessment_required: bool = False
 
 
 class LegacyRAGRecommendation(BaseModel):
