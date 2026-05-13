@@ -197,3 +197,57 @@ Added:
 
 ### Next Steps
 - Proceed to task 2E (Supabase Migration for 90-Day Roadmap)
+
+---
+
+## Task 6B: Add Rate Limiting
+
+**Date:** 2026-05-14  
+**Owner:** Yehia (Y)  
+**Status:** ✅ Completed
+
+### Dependencies
+- **Depends on:** 1D (Wire Auth on Core Endpoints) — completed
+
+### Changes Made
+
+#### 1. Modified `requirements.txt`
+- Added `slowapi>=0.1.9` for rate limiting
+- Installed via pip
+
+#### 2. Modified `services/gateway/main.py`
+- Imported `slowapi.Limiter` and `slowapi.util.get_remote_address`
+- Created limiter with IP-based key function: `limiter = Limiter(key_func=get_remote_address)`
+- Registered limiter on app state: `app.state.limiter = limiter`
+- Added `@limiter.limit("10/minute")` decorator to `POST /api/assess` endpoint
+- `/health` endpoint remains unlimited (as designed)
+
+#### 3. Created `tests/test_rate_limiting.py`
+- 8 passing unit tests covering:
+  - slowapi import
+  - Limiter creation
+  - Assess endpoint exists
+  - Limiter key function configuration
+  - Limiter registered on app
+  - Rate limit decorator format
+  - Custom key function support
+  - Health endpoint without rate limit
+
+### Security Notes
+- Rate limiting: 10 requests per minute per IP address
+- Prevents abuse of `/api/assess` endpoint
+- IP-based limiting helps with basic DDoS protection
+- `/health` endpoint remains public and unlimited
+
+### Files Changed
+```
+Modified:
+  - requirements.txt
+  - services/gateway/main.py
+
+Added:
+  - tests/test_rate_limiting.py
+```
+
+### Next Steps
+- Proceed to task 6C (Scale Uvicorn Workers)
