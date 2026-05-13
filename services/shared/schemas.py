@@ -77,6 +77,9 @@ class FinalRoadmap(BaseModel):
     suggested_tasks: List[ClinicalTask] = Field(default_factory=list)
     safety_status: Literal["GREEN", "YELLOW", "RED"]
     next_checkup_days: int
+    days: List[RoadmapDay] = Field(default_factory=list)
+    total_days: int = 90
+    assessment_required: bool = False
 
 
 class LegacyRAGRecommendation(BaseModel):
@@ -92,12 +95,21 @@ class LegacyRAGRecommendation(BaseModel):
     pages: str
 
 
+class AppPercentage(BaseModel):
+    """Single app's percentage of total screen time."""
+
+    packageName: str
+    percentage: float
+    category: str
+
+
 class ScreenTimeInsights(BaseModel):
     totalMinutes: float = 0.0
     socialRatio: float = 0.0
     productivityRatio: float = 0.0
     topSocialApps: List[str] = Field(default_factory=list)
     topProductivityApps: List[str] = Field(default_factory=list)
+    appBreakdown: List[AppPercentage] = Field(default_factory=list)
 
 
 class RoadmapDay(BaseModel):

@@ -197,3 +197,140 @@ Added:
 
 ### Next Steps
 - Proceed to task 2E (Supabase Migration for 90-Day Roadmap)
+---
+
+## Task 1B: Startup Environment Validation
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Created services/shared/env_validation.py - validates SUPABASE_JWT_SECRET on startup
+2. Modified services/gateway/main.py - added startup event to call validate_env()
+
+---
+
+## Task 1C: Add SUPABASE_JWT_SECRET to Env Configs
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified .env.example - added SUPABASE_JWT_SECRET
+2. Modified deployments/.env.example - added SUPABASE_JWT_SECRET
+3. Modified deployments/docker-compose.yml - added SUPABASE_JWT_SECRET env var
+4. Modified deployments/render.yaml - added SUPABASE_JWT_SECRET, UPHEAL_SUPABASE_URL, UPHEAL_SUPABASE_KEY
+
+---
+
+## Task 1E: Parameterize CORS
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified services/gateway/main.py - CORS now uses ALLOWED_ORIGINS env var (defaults to "*" in dev)
+
+---
+
+## Task 2B: 90-Day Task Generation Algorithm
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified services/architect/pipeline.py - added generate_ninety_day_plan() function with Quick Win/Ladder/Boss phases
+2. Modified services/shared/schemas.py - added days, total_days, assessment_required to FinalRoadmap
+
+---
+
+## Task 2C: 90-Day Roadmap in Orchestrator
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified services/architect/pipeline.py - integrated 90-day plan generation into run_architect_pipeline()
+2. Modified services/gateway/main.py - added days, total_days, assessment_required to RoadmapResponse
+
+---
+
+## Task 2E: Supabase Migration for 90-Day Roadmap
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Created supabase/migrations/013_roadmap_ninety_day.sql - added total_days, current_day columns and auth trigger
+2. Modified supabase/combined_migrations.sql - appended migration 013
+3. Modified supabase/README.md - added migration 013 to index
+4. Created scripts/run_migrations.sh and scripts/run_migrations.ps1 - migration runner scripts
+
+---
+
+## Task 3C: Per-App Social/Detox Penalty in Architect Scoring
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified services/shared/schemas.py - added AppPercentage model and appBreakdown to ScreenTimeInsights
+2. Modified services/assessment/core.py - updated parse_screen_time_data() to compute app_breakdown
+3. Modified services/architect/pipeline.py - added _calculate_social_heavy_penalty() and updated rerank_tasks()
+
+---
+
+## Task 5A: Update railway.json with All Env Vars
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified deployments/railway.json - complete rewrite with all required env vars (SUPABASE_JWT_SECRET, UPHEAL_SUPABASE_URL, etc.)
+
+---
+
+## Task 5C: Run Supabase Migrations
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed (Ready to Run)
+
+### Changes Made
+1. Created scripts/run_migrations.sh - bash migration runner
+2. Created scripts/run_migrations.ps1 - PowerShell migration runner
+
+---
+
+## Task 6C: Scale Uvicorn Workers
+
+**Date:** 2026-05-13
+**Owner:** Hozaifa (H)
+**Status:** ? Completed
+
+### Changes Made
+1. Modified deployments/Dockerfile - added --workers 2 to uvicorn CMD
+
+---
+
+## Session Summary: All Hozaifa Tasks Complete
+
+**Date:** 2026-05-13
+**Test Results:** 505 passed, 2 failed (pre-existing kb_router issues)
+
+### Completed Tasks
+- 1B, 1C, 1E, 2B, 2C, 2E, 3C, 5A, 5C, 6C
+
+### Next Steps
+- 5B: Set Railway Secrets (SUPABASE_JWT_SECRET, UPHEAL_SUPABASE_KEY)
+- 5D: Deploy to Railway
+- 6A: Lock CORS (after deployment URL known)
+- 6B: Rate Limiting (Yahya)

@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
@@ -9,6 +10,7 @@ from services.gateway.auth_middleware import AuthenticatedUser, get_current_user
 
 from services.gateway.orchestrator import run_assessment_chain
 from services.gateway.schemas import RoadmapRequest, RoadmapResponse
+from services.shared.env_validation import validate_env
 from services.shared.logging import get_logger
 from services.shared.schemas import (
     AssessGatewayResponse,
@@ -21,6 +23,8 @@ from services.architect.router import router as architect_router
 from services.ingestion.router import router as ingestion_router
 from services.auditor.router import router as auditor_router
 from services.telemetry.router import router as telemetry_router
+from services.chat.router import router as chat_router
+from services.journal.router import router as journal_router
 from services.roadmap.router import router as roadmap_router
 
 
@@ -32,13 +36,21 @@ app = FastAPI(
     description="In-process microservices scaffolding (gateway orchestrates domain modules).",
 )
 
+# Parameterized CORS — allow all in dev, restrict in production via ALLOWED_ORIGINS env var
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    validate_env()
 
 
 class AssessRequest(BaseModel):
@@ -180,6 +192,9 @@ def generate_roadmap(
             generated_at=chain_response.timestamp,
             session_id=chain_response.session_id,
             screen_time_insights=road_screen_insights,
+            days=getattr(chain_response, "days", []),
+            total_days=getattr(chain_response, "total_days", 90),
+            assessment_required=getattr(chain_response, "assessment_required", False),
         )
         return roadmap
     except HTTPException:
@@ -196,6 +211,8 @@ app.include_router(kb_router, prefix="/knowledge_base", tags=["knowledge_base"])
 app.include_router(architect_router, prefix="/architect", tags=["architect"])
 app.include_router(auditor_router, prefix="/auditor", tags=["auditor"])
 app.include_router(telemetry_router, prefix="/api", tags=["telemetry"])
+app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(journal_router, prefix="/api", tags=["journal"])
 app.include_router(roadmap_router, prefix="/api/roadmap", tags=["roadmap"])
 
 

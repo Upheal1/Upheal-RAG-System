@@ -51,3 +51,4 @@ my_app/.flutter-plugins-dependencies
 my_app/.packages
 my_app/pubspec.lock
 
+node_modules

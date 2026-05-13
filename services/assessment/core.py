@@ -92,10 +92,21 @@ def parse_screen_time_data(data: ScreenTimeData) -> dict:
             "top_social_apps": [],
             "top_productivity_apps": [],
             "enhanced_r_app": 0.0,
+            "app_breakdown": [],
         }
 
-    social = data.socialMinutes
-    productivity = data.productivityMinutes
+    # Compute per-app percentages
+    app_breakdown = []
+    for app in data.dailyUsage:
+        pct = (app.usageTime / total) * 100 if total > 0 else 0
+        app_breakdown.append({
+            "packageName": app.packageName,
+            "percentage": round(pct, 1),
+            "category": app.category.lower(),
+        })
+
+    # Sort by percentage descending
+    app_breakdown.sort(key=lambda x: x["percentage"], reverse=True)
 
     top_social = sorted(
         [app.packageName for app in data.dailyUsage if app.category.lower() == "social"],
@@ -127,6 +138,7 @@ def parse_screen_time_data(data: ScreenTimeData) -> dict:
         "top_social_apps": top_social,
         "top_productivity_apps": top_productivity,
         "enhanced_r_app": enhanced_r,
+        "app_breakdown": app_breakdown,
     }
 
 
@@ -135,7 +147,11 @@ def build_screen_time_insights(data: ScreenTimeData) -> dict:
     Build the screen_time_insights dict for the response payload.
     """
     parsed = parse_screen_time_data(data)
-    from services.shared.schemas import ScreenTimeInsights
+    from services.shared.schemas import AppPercentage, ScreenTimeInsights
+
+    app_breakdown = [
+        AppPercentage(**app) for app in parsed.get("app_breakdown", [])
+    ]
 
     return ScreenTimeInsights(
         totalMinutes=parsed["total_minutes"],
@@ -143,6 +159,7 @@ def build_screen_time_insights(data: ScreenTimeData) -> dict:
         productivityRatio=parsed["productivity_ratio"],
         topSocialApps=parsed["top_social_apps"],
         topProductivityApps=parsed["top_productivity_apps"],
+        appBreakdown=app_breakdown,
     )
 
 

@@ -18,6 +18,7 @@ SQL migrations for Upheal's Supabase PostgreSQL instance. Apply in order (prefix
 | 010 | `010_add_data_retention_cleanup.sql` | Data retention policies |
 | 011 | `011_fix_security_definer_functions.sql` | Fix security definer exposure |
 | 012 | `012_enable_rls_policies.sql` | Enable RLS on all tables |
+| 013 | `013_roadmap_ninety_day.sql` | 90-day roadmap columns + auth signup trigger |
 
 ## Schema Map
 
@@ -58,6 +59,7 @@ Canonical task definitions — synced with Chroma metadata as source of truth.
 ### `roadmaps`
 Per-user roadmap generation record with validity window.
 - `user_id`, `generation_number`, `overall_theme`, `status`
+- `total_days` (default 90), `current_day` (1–90)
 - `director_overrides` (JSON): active mutation instructions snapshot
 - `valid_from` / `valid_until`
 
