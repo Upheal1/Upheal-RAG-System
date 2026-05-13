@@ -9,6 +9,7 @@ from services.architect.director_override import (
 )
 from services.shared.logging import get_logger
 from services.shared.schemas import (
+    AppPercentage,
     ClinicalTask,
     FinalRoadmap,
     RetrievalQuery,
@@ -182,6 +183,31 @@ def retrieve_candidates(
     return filtered
 
 
+def _calculate_social_heavy_penalty(app_breakdown: List[AppPercentage]) -> float:
+    """
+    If social apps > 30% of total screen time, return boost factor.
+    If productivity apps > 50%, return reduced boost factor.
+    """
+    total_social_pct = sum(
+        app.percentage
+        for app in app_breakdown
+        if app.category == "social"
+    )
+
+    total_productivity_pct = sum(
+        app.percentage
+        for app in app_breakdown
+        if app.category == "productivity"
+    )
+
+    if total_social_pct > 30.0:
+        return 1.15  # Boost detox by 15%
+    elif total_productivity_pct > 50.0:
+        return 0.85  # Reduce detox boost by 15%
+    else:
+        return 1.0
+
+
 def rerank_tasks(
     tasks: Sequence[ClinicalTask],
     user_context: UserContext,
@@ -190,6 +216,16 @@ def rerank_tasks(
     boost_digital_detox: bool = False,
 ) -> List[ClinicalTask]:
     r_app = float(user_context.app_exposure_ratios.get("r_app", 0.0))
+
+    # Calculate social/productivity penalty from app breakdown
+    social_penalty = 1.0
+    if user_context.screen_time_data is not None:
+        from services.assessment.core import parse_screen_time_data
+        parsed = parse_screen_time_data(user_context.screen_time_data)
+        app_breakdown = [
+            AppPercentage(**app) for app in parsed.get("app_breakdown", [])
+        ]
+        social_penalty = _calculate_social_heavy_penalty(app_breakdown)
 
     scored: List[Tuple[float, ClinicalTask]] = []
     for task in tasks:
@@ -202,7 +238,13 @@ def rerank_tasks(
             r_app=r_app,
             utility_score=utility_score,
         )
-        final_score = _apply_detox_boost(base_score, task, boost_digital_detox)
+
+        # Apply detox boost with social penalty
+        if boost_digital_detox:
+            final_score = _apply_detox_boost(base_score * social_penalty, task, boost_digital_detox)
+        else:
+            final_score = base_score
+
         scored.append((final_score, task))
 
     scored.sort(key=lambda x: (x[0], -x[1].difficulty, x[1].task_id), reverse=True)
