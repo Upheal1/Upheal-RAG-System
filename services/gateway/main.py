@@ -192,9 +192,9 @@ def generate_roadmap(
             generated_at=chain_response.timestamp,
             session_id=chain_response.session_id,
             screen_time_insights=road_screen_insights,
-            days=chain_response.days,
-            total_days=chain_response.total_days,
-            assessment_required=chain_response.assessment_required,
+            days=getattr(chain_response, "days", []),
+            total_days=getattr(chain_response, "total_days", 90),
+            assessment_required=getattr(chain_response, "assessment_required", False),
         )
         return roadmap
     except HTTPException:

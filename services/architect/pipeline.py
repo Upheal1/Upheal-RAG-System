@@ -319,6 +319,10 @@ def generate_ninety_day_plan(
         "mindful break",
     ]
 
+    # Handle empty candidates — return empty plan (shouldn't happen with fallback)
+    if not candidates:
+        return []
+
     days = []
     for phase_name, start_day, end_day, difficulties in PHASES:
         phase_candidates = [t for t in candidates if t.difficulty in difficulties]
