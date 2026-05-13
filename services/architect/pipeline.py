@@ -9,9 +9,11 @@ from services.architect.director_override import (
 )
 from services.shared.logging import get_logger
 from services.shared.schemas import (
+    AppPercentage,
     ClinicalTask,
     FinalRoadmap,
     RetrievalQuery,
+    RoadmapDay,
     UserContext,
 )
 
@@ -181,6 +183,31 @@ def retrieve_candidates(
     return filtered
 
 
+def _calculate_social_heavy_penalty(app_breakdown: List[AppPercentage]) -> float:
+    """
+    If social apps > 30% of total screen time, return boost factor.
+    If productivity apps > 50%, return reduced boost factor.
+    """
+    total_social_pct = sum(
+        app.percentage
+        for app in app_breakdown
+        if app.category == "social"
+    )
+
+    total_productivity_pct = sum(
+        app.percentage
+        for app in app_breakdown
+        if app.category == "productivity"
+    )
+
+    if total_social_pct > 30.0:
+        return 1.15  # Boost detox by 15%
+    elif total_productivity_pct > 50.0:
+        return 0.85  # Reduce detox boost by 15%
+    else:
+        return 1.0
+
+
 def rerank_tasks(
     tasks: Sequence[ClinicalTask],
     user_context: UserContext,
@@ -189,6 +216,16 @@ def rerank_tasks(
     boost_digital_detox: bool = False,
 ) -> List[ClinicalTask]:
     r_app = float(user_context.app_exposure_ratios.get("r_app", 0.0))
+
+    # Calculate social/productivity penalty from app breakdown
+    social_penalty = 1.0
+    if user_context.screen_time_data is not None:
+        from services.assessment.core import parse_screen_time_data
+        parsed = parse_screen_time_data(user_context.screen_time_data)
+        app_breakdown = [
+            AppPercentage(**app) for app in parsed.get("app_breakdown", [])
+        ]
+        social_penalty = _calculate_social_heavy_penalty(app_breakdown)
 
     scored: List[Tuple[float, ClinicalTask]] = []
     for task in tasks:
@@ -201,7 +238,13 @@ def rerank_tasks(
             r_app=r_app,
             utility_score=utility_score,
         )
-        final_score = _apply_detox_boost(base_score, task, boost_digital_detox)
+
+        # Apply detox boost with social penalty
+        if boost_digital_detox:
+            final_score = _apply_detox_boost(base_score * social_penalty, task, boost_digital_detox)
+        else:
+            final_score = base_score
+
         scored.append((final_score, task))
 
     scored.sort(key=lambda x: (x[0], -x[1].difficulty, x[1].task_id), reverse=True)
@@ -240,6 +283,75 @@ def _sequence_tasks(
             task.phase = "Boss"
 
     return sorted_tasks
+
+
+def generate_ninety_day_plan(
+    candidates: List[ClinicalTask],
+    user_context: UserContext,
+    total_days: int = 90,
+) -> List[RoadmapDay]:
+    """
+    Generate a 90-day roadmap with 1 task per day.
+
+    Phase allocation:
+      Days 1-7   → Quick Win  (difficulty 1-2)
+      Days 8-30  → Ladder     (difficulty 3)
+      Days 31-90 → Boss       (difficulty 4-5)
+
+    When unique tasks are exhausted within a phase, repeat with
+    day-specific context labels to give each repetition a fresh lens.
+    """
+    PHASES = [
+        ("Quick Win", 1, 7, [1, 2]),    # days 1-7, difficulty 1-2
+        ("Ladder", 8, 30, [3]),           # days 8-30, difficulty 3
+        ("Boss", 31, 90, [4, 5]),         # days 31-90, difficulty 4-5
+    ]
+
+    DAY_CONTEXTS = [
+        "morning routine",
+        "midday check-in",
+        "evening wind-down",
+        "stress relief",
+        "focus boost",
+        "pre-sleep calm",
+        "weekend reset",
+        "commute companion",
+        "mindful break",
+    ]
+
+    # Handle empty candidates — return empty plan (shouldn't happen with fallback)
+    if not candidates:
+        return []
+
+    days = []
+    for phase_name, start_day, end_day, difficulties in PHASES:
+        phase_candidates = [t for t in candidates if t.difficulty in difficulties]
+
+        # Fallback: if no candidates match this phase's difficulty,
+        # use all candidates (don't leave days empty)
+        if not phase_candidates:
+            phase_candidates = list(candidates)
+
+        day_in_phase = 0
+        for day_num in range(start_day, end_day + 1):
+            # Cycle through candidates with rotation
+            idx = day_in_phase % len(phase_candidates)
+            task = phase_candidates[idx]
+
+            # Apply day context for variety when repeating
+            context_idx = day_in_phase % len(DAY_CONTEXTS)
+
+            days.append(
+                RoadmapDay(
+                    day_number=day_num,
+                    task=task,
+                    phase=phase_name,
+                    day_context=DAY_CONTEXTS[context_idx],
+                )
+            )
+            day_in_phase += 1
+
+    return days
 
 
 def build_overview_paragraph(
@@ -305,12 +417,25 @@ def run_architect_pipeline(
     # Gamifier slot (A-YAH-06) — pass-through for now.
     suggested = _sequence_tasks(suggested, user_context)
 
+    # Generate 90-day plan from all candidates (not just top_n)
+    ninety_day_plan = generate_ninety_day_plan(
+        list(pre_filtered),
+        user_context,
+        total_days=90,
+    )
+
+    # Determine next checkup based on current phase (first day = Quick Win)
+    next_checkup = 7  # Quick Win phase checkup
+
     draft = FinalRoadmap(
         user_id=user_context.user_id,
         overview_paragraph=build_overview_paragraph(user_context, suggested),
         suggested_tasks=list(suggested),
         safety_status="GREEN",
-        next_checkup_days=14,
+        next_checkup_days=next_checkup,
+        days=ninety_day_plan,
+        total_days=90,
+        assessment_required=False,
     )
 
     resolved_locale = retrieval_query.locale if retrieval_query else locale
