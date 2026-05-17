@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Union
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from services.gateway.auth_middleware import AuthenticatedUser, get_current_user
 
@@ -30,6 +32,8 @@ from services.roadmap.router import router as roadmap_router
 
 logger = get_logger(__name__)
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Upheal Microservices Gateway",
     version="0.1.0",
@@ -46,6 +50,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.state.limiter = limiter
 
 
 @app.on_event("startup")
@@ -110,6 +116,7 @@ def health_check() -> HealthResponse:
 
 
 @app.post("/api/assess", response_model=AssessGatewayResponse, tags=["assessment"])
+@limiter.limit("10/minute")
 def assess(
     payload: Dict[str, Any],
     request: Request,

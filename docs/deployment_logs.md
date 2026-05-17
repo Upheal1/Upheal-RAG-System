@@ -197,6 +197,50 @@ Added:
 
 ### Next Steps
 - Proceed to task 2E (Supabase Migration for 90-Day Roadmap)
+
+---
+
+## Task 6B: Add Rate Limiting
+
+**Date:** 2026-05-14  
+**Owner:** Yehia (Y)  
+**Status:** ✅ Completed
+
+### Dependencies
+- **Depends on:** 1D (Wire Auth on Core Endpoints) — completed
+
+### Changes Made
+
+#### 1. Modified `requirements.txt`
+- Added `slowapi>=0.1.9` for rate limiting
+
+#### 2. Modified `services/gateway/main.py`
+- Imported `slowapi.Limiter` and `slowapi.util.get_remote_address`
+- Created limiter with IP-based key function: `limiter = Limiter(key_func=get_remote_address)`
+- Registered limiter on app state: `app.state.limiter = limiter`
+- Added `@limiter.limit("10/minute")` decorator to `POST /api/assess` endpoint
+- `/health` endpoint remains unlimited (as designed)
+
+#### 3. Created `tests/test_rate_limiting.py`
+- 8 passing unit tests covering rate limiting functionality
+
+### Security Notes
+- Rate limiting: 10 requests per minute per IP address
+- Prevents abuse of `/api/assess` endpoint
+- `/health` endpoint remains public and unlimited
+
+### Files Changed
+```
+Modified:
+  - requirements.txt
+  - services/gateway/main.py
+
+Added:
+  - tests/test_rate_limiting.py
+```
+
+### Next Steps
+- Proceed to task 6C (Scale Uvicorn Workers)
 ---
 
 ## Task 1B: Startup Environment Validation
@@ -327,7 +371,7 @@ Added:
 **Test Results:** 505 passed, 2 failed (pre-existing kb_router issues)
 
 ### Completed Tasks
-- 1B, 1C, 1E, 2B, 2C, 2E, 3C, 5A, 5C, 6C
+- 1B, 1C, 1E, 2B, 2C, 2E, 3C, 5A, 5C, 6C, 6B (Yahya)
 
 ### Next Steps
 - 5B: Set Railway Secrets (SUPABASE_JWT_SECRET, UPHEAL_SUPABASE_KEY)
