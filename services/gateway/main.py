@@ -108,6 +108,7 @@ except Exception:
 def health_check() -> HealthResponse:
     """Lightweight health check that doesn't load heavy models."""
     import os
+    import os.path
     
     # Check if ChromaDB path exists without loading the model
     chroma_path = os.environ.get("UPHEAL_CHROMA_PATH", "./data/vector_db_mini")
@@ -121,17 +122,23 @@ def health_check() -> HealthResponse:
             # For HTTP ChromaDB, assume healthy if URL is set
             kb_healthy = True
         else:
-            # For local path, check if directory exists
-            import os.path
-            kb_healthy = os.path.exists(chroma_path) and os.path.isdir(chroma_path)
-            
-            # Try to count files in the directory (lightweight check)
-            if kb_healthy:
-                try:
-                    files = os.listdir(chroma_path)
-                    doc_count = len([f for f in files if f.endswith('.sqlite3') or f.startswith('index')])
-                except:
-                    pass
+            # For local path, check if directory exists and has chroma.sqlite3
+            if os.path.exists(chroma_path) and os.path.isdir(chroma_path):
+                # Check for main ChromaDB file
+                chroma_db_file = os.path.join(chroma_path, "chroma.sqlite3")
+                kb_healthy = os.path.exists(chroma_db_file)
+                
+                # Count index directories (each represents a collection/index)
+                if kb_healthy:
+                    try:
+                        items = os.listdir(chroma_path)
+                        # Count UUID directories (these are ChromaDB index folders)
+                        doc_count = len([f for f in items if len(f) == 36 and '-' in f])
+                        # If no UUID dirs, at least count the sqlite3 as 1 doc
+                        if doc_count == 0:
+                            doc_count = 1
+                    except:
+                        doc_count = 1
     except Exception:
         pass
     
