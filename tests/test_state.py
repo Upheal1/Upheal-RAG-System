@@ -107,7 +107,7 @@ class TestChromaCollectionName:
 class TestEmbeddingModelName:
     def test_default(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            assert embedding_model_name() == "all-mpnet-base-v2"
+            assert embedding_model_name() == "all-MiniLM-L6-v2"
 
     def test_env_override(self) -> None:
         with patch.dict(os.environ, {"UPHEAL_EMBEDDING_MODEL": "custom-model"}):

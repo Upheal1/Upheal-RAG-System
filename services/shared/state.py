@@ -92,7 +92,7 @@ def chroma_collection_name() -> str:
 
 def embedding_model_name() -> str:
     """Return the configured embedding model name."""
-    return os.getenv("UPHEAL_EMBEDDING_MODEL", "all-mpnet-base-v2")
+    return os.getenv("UPHEAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 
 def semantic_chunks_path() -> Path:
