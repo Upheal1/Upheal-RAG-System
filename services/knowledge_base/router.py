@@ -20,9 +20,8 @@ def _get_kb():
 
 
 def _kb_path() -> str:
-    import os
-    from services.shared.pathing import repo_root
-    return os.environ.get("UPHEAL_CHROMA_PATH", str(repo_root() / "data" / "vector_db_mini"))
+    from services.shared.pathing import resolve_chroma_path
+    return resolve_chroma_path()
 
 
 class KnowledgeBaseHealthResponse(BaseModel):

@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict, List, Optional
 
 from services.shared.logging import get_logger
-from services.shared.pathing import repo_root
 from services.shared.schemas import ClinicalTask, RetrievalQuery, UserContext
 
 
@@ -136,10 +135,11 @@ class ChromaKnowledgeBase:
         hnsw_ef_construction: int = 200,
         hnsw_m: int = 16,
     ):
-        root = repo_root()
-        self.vector_db_path = vector_db_path or os.environ.get(
-            "UPHEAL_CHROMA_PATH", str(root / "data" / "vector_db_mini")
-        )
+        if vector_db_path:
+            self.vector_db_path = vector_db_path
+        else:
+            from services.shared.pathing import resolve_chroma_path
+            self.vector_db_path = resolve_chroma_path()
         self.collection_name = collection_name or os.environ.get(
             "UPHEAL_CHROMA_COLLECTION", "clinical_rag_mini"
         )

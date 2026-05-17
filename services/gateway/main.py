@@ -110,8 +110,10 @@ def health_check() -> HealthResponse:
     import os
     import os.path
     
-    # Check if ChromaDB path exists without loading the model
-    chroma_path = os.environ.get("UPHEAL_CHROMA_PATH", "./data/vector_db_mini")
+    from services.shared.pathing import resolve_chroma_path
+    
+    # Resolve ChromaDB path in a deployment-agnostic way
+    chroma_path = resolve_chroma_path()
     
     # Simple path-based health check (no model loading)
     kb_healthy = False
