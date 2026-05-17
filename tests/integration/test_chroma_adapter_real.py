@@ -24,11 +24,17 @@ from services.shared.schemas import RetrievalQuery, UserContext
 
 @pytest.fixture
 def kb() -> ChromaKnowledgeBase:
-    """Real adapter pointing at data/vector_db_mini (committed fixture DB)."""
+    """Real adapter pointing at data/vector_db_mini (committed fixture DB).
+
+    Uses all-mpnet-base-v2 because the fixture DB was built with that model.
+    The production default is all-MiniLM-L6-v2 (lighter) but the test data
+    requires 768-dimension embeddings to match.
+    """
     from services.shared.pathing import repo_root
     return ChromaKnowledgeBase(
         vector_db_path=str(repo_root() / "data" / "vector_db_mini"),
         collection_name="clinical_rag_mini",
+        model_name="all-mpnet-base-v2",
     )
 
 

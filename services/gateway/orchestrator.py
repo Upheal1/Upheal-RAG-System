@@ -37,7 +37,14 @@ from services.shared.schemas import (
 )
 
 logger = get_logger(__name__)
-_kb = ChromaKnowledgeBase()
+_kb = None
+
+
+def _get_kb():
+    global _kb
+    if _kb is None:
+        _kb = ChromaKnowledgeBase()
+    return _kb
 
 ASSESSMENT_STAGE = "gateway.assess"
 
@@ -204,7 +211,7 @@ def _run_architect(
         locale=locale,
     )
 
-    candidate_tasks = _kb.retrieve_tasks(
+    candidate_tasks = _get_kb().retrieve_tasks(
         RetrievalQuery(query_text=query_text),
         user_context,
         top_k=top_n,
