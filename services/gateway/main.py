@@ -123,21 +123,16 @@ def health_check() -> HealthResponse:
             kb_healthy = True
         else:
             # For local path, check if directory exists and has chroma.sqlite3
-            if os.path.exists(chroma_path) and os.path.isdir(chroma_path):
-                # Check for main ChromaDB file
+            path_exists = os.path.exists(chroma_path)
+            is_dir = os.path.isdir(chroma_path) if path_exists else False
+            if path_exists and is_dir:
+                items = os.listdir(chroma_path)
                 chroma_db_file = os.path.join(chroma_path, "chroma.sqlite3")
                 kb_healthy = os.path.exists(chroma_db_file)
                 
-                # Count index directories (each represents a collection/index)
                 if kb_healthy:
-                    try:
-                        items = os.listdir(chroma_path)
-                        # Count UUID directories (these are ChromaDB index folders)
-                        doc_count = len([f for f in items if len(f) == 36 and '-' in f])
-                        # If no UUID dirs, at least count the sqlite3 as 1 doc
-                        if doc_count == 0:
-                            doc_count = 1
-                    except:
+                    doc_count = len([f for f in items if len(f) == 36 and '-' in f])
+                    if doc_count == 0:
                         doc_count = 1
     except Exception:
         pass
@@ -147,6 +142,28 @@ def health_check() -> HealthResponse:
         knowledge_base_healthy=kb_healthy,
         knowledge_base_documents=doc_count,
     )
+
+
+@app.get("/debug/paths", tags=["debug"])
+def debug_paths():
+    """Debug endpoint to check file paths in the container."""
+    import os
+    chroma_path = os.environ.get("UPHEAL_CHROMA_PATH", "./data/vector_db_mini")
+    result = {
+        "chroma_path_env": chroma_path,
+        "cwd": os.getcwd(),
+        "path_exists": os.path.exists(chroma_path),
+        "is_dir": os.path.isdir(chroma_path) if os.path.exists(chroma_path) else False,
+        "sqlite_exists": os.path.exists(os.path.join(chroma_path, "chroma.sqlite3")) if os.path.exists(chroma_path) else False,
+        "data_dir_exists": os.path.exists("./data"),
+        "data_dir_contents": os.listdir("./data") if os.path.exists("./data") else [],
+    }
+    if os.path.exists(chroma_path) and os.path.isdir(chroma_path):
+        try:
+            result["chroma_dir_contents"] = os.listdir(chroma_path)
+        except Exception as e:
+            result["chroma_dir_error"] = str(e)
+    return result
 
 
 @app.post("/api/assess", response_model=AssessGatewayResponse, tags=["assessment"])
