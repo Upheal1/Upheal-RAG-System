@@ -131,7 +131,7 @@ class ChromaKnowledgeBase:
         *,
         vector_db_path: Optional[str] = None,
         collection_name: Optional[str] = None,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "all-mpnet-base-v2",
         hnsw_ef_search: int = 128,
         hnsw_ef_construction: int = 200,
         hnsw_m: int = 16,
