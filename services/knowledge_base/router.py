@@ -60,6 +60,7 @@ def _last_ingestion_from_metadata() -> Optional[str]:
 
 
 @router.get("/health", response_model=KnowledgeBaseHealthResponse, tags=["knowledge_base"])
+@router.head("/health", include_in_schema=False)
 def health_check() -> KnowledgeBaseHealthResponse:
     healthy = _kb.is_healthy()
     count = _kb.get_document_count()

@@ -104,6 +104,7 @@ except Exception:
 
 
 @app.get("/health", response_model=HealthResponse, tags=["gateway"])
+@app.head("/health", include_in_schema=False)
 def health_check() -> HealthResponse:
     from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
 
