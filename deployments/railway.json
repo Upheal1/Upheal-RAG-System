@@ -15,30 +15,43 @@
       "source": ".",
       "dockerfile": "deployments/Dockerfile",
       "port": 8000,
+      "healthCheckPath": "/health",
       "environment": [
+        {
+          "key": "SUPABASE_JWT_SECRET",
+          "value": "${SUPABASE_JWT_SECRET}"
+        },
+        {
+          "key": "UPHEAL_SUPABASE_URL",
+          "value": "https://gcxxmjptbyvlabqzcprv.supabase.co"
+        },
+        {
+          "key": "UPHEAL_SUPABASE_KEY",
+          "value": "${UPHEAL_SUPABASE_KEY}"
+        },
         {
           "key": "UPHEAL_CHROMA_PATH",
-          "value": "http://chromadb:8000"
+          "value": "./data/vector_db_mini_enriched"
         },
         {
-          "key": "OLLAMA_BASE_URL",
-          "value": "${OLLAMA_URL}"
-        }
-      ]
-    },
-    {
-      "name": "chromadb",
-      "image": "chromadb/chroma:latest",
-      "port": 8000,
-      "persistentDirectory": "/chroma/chroma",
-      "environment": [
-        {
-          "key": "IS_PERSISTENT",
-          "value": "TRUE"
+          "key": "UPHEAL_CHROMA_COLLECTION",
+          "value": "clinical_rag_mini_enriched"
         },
         {
-          "key": "ANONYMIZED_TELEMETRY",
-          "value": "FALSE"
+          "key": "UPHEAL_EMBEDDING_MODEL",
+          "value": "all-mpnet-base-v2"
+        },
+        {
+          "key": "ALLOWED_ORIGINS",
+          "value": "*"
+        },
+        {
+          "key": "LOG_LEVEL",
+          "value": "INFO"
+        },
+        {
+          "key": "PYTHONPATH",
+          "value": "/app"
         }
       ]
     }

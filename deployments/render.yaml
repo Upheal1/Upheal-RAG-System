@@ -31,6 +31,20 @@
           "key": "GOOGLE_API_KEY",
           "value": "${GOOGLE_API_KEY}",
           "sync": false
+        },
+        {
+          "key": "SUPABASE_JWT_SECRET",
+          "value": "${SUPABASE_JWT_SECRET}",
+          "sync": false
+        },
+        {
+          "key": "UPHEAL_SUPABASE_URL",
+          "value": "${UPHEAL_SUPABASE_URL}"
+        },
+        {
+          "key": "UPHEAL_SUPABASE_KEY",
+          "value": "${UPHEAL_SUPABASE_KEY}",
+          "sync": false
         }
       ]
     }

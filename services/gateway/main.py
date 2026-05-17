@@ -1,14 +1,24 @@
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from services.gateway.auth_middleware import AuthenticatedUser, get_current_user
 
 from services.gateway.orchestrator import run_assessment_chain
 from services.gateway.schemas import RoadmapRequest, RoadmapResponse
+from services.shared.env_validation import validate_env
 from services.shared.logging import get_logger
-from services.shared.schemas import AssessGatewayResponse, ScreenTimeData, ScreenTimeInsights
+from services.shared.schemas import (
+    AssessGatewayResponse,
+    ScreenTimeData,
+    ScreenTimeInsights,
+)
 from services.assessment.router import router as assessment_router
 from services.knowledge_base.router import router as kb_router
 from services.architect.router import router as architect_router
@@ -22,19 +32,31 @@ from services.roadmap.router import router as roadmap_router
 
 logger = get_logger(__name__)
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI(
     title="Upheal Microservices Gateway",
     version="0.1.0",
     description="In-process microservices scaffolding (gateway orchestrates domain modules).",
 )
 
+# Parameterized CORS — allow all in dev, restrict in production via ALLOWED_ORIGINS env var
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.state.limiter = limiter
+
+
+@app.on_event("startup")
+async def startup_event():
+    validate_env()
 
 
 class AssessRequest(BaseModel):
@@ -94,7 +116,12 @@ def health_check() -> HealthResponse:
 
 
 @app.post("/api/assess", response_model=AssessGatewayResponse, tags=["assessment"])
-def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
+@limiter.limit("10/minute")
+def assess(
+    payload: Dict[str, Any],
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AssessGatewayResponse:
     try:
         req = AssessRequest.model_validate(payload)
         raw_payload: Any = req.raw_forms_json
@@ -109,7 +136,7 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
             effective_screen_time = req.screenTimeData.totalMinutes
 
         return run_assessment_chain(
-            user_id=req.user_id,
+            user_id=user.user_id,
             raw_payload=raw_payload,
             screen_time_minutes=effective_screen_time,
             locale=req.locale,
@@ -125,7 +152,10 @@ def assess(payload: Dict[str, Any]) -> AssessGatewayResponse:
 
 
 @app.post("/api/roadmap", response_model=RoadmapResponse, tags=["roadmap"])
-def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
+def generate_roadmap(
+    payload: Dict[str, Any],
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> RoadmapResponse:
     """
     Generate a personalized clinical roadmap.
 
@@ -146,7 +176,7 @@ def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
             effective_screen_time = req.screenTimeData.totalMinutes
 
         chain_response = run_assessment_chain(
-            user_id=req.user_id,
+            user_id=user.user_id,
             raw_payload=raw_payload,
             screen_time_minutes=effective_screen_time,
             locale=req.locale,
@@ -169,6 +199,9 @@ def generate_roadmap(payload: Dict[str, Any]) -> RoadmapResponse:
             generated_at=chain_response.timestamp,
             session_id=chain_response.session_id,
             screen_time_insights=road_screen_insights,
+            days=getattr(chain_response, "days", []),
+            total_days=getattr(chain_response, "total_days", 90),
+            assessment_required=getattr(chain_response, "assessment_required", False),
         )
         return roadmap
     except HTTPException:
@@ -187,7 +220,7 @@ app.include_router(auditor_router, prefix="/auditor", tags=["auditor"])
 app.include_router(telemetry_router, prefix="/api", tags=["telemetry"])
 app.include_router(chat_router, prefix="/api", tags=["chat"])
 app.include_router(journal_router, prefix="/api", tags=["journal"])
-app.include_router(roadmap_router, prefix="/api", tags=["roadmap"])
+app.include_router(roadmap_router, prefix="/api/roadmap", tags=["roadmap"])
 
 
 if __name__ == "__main__":

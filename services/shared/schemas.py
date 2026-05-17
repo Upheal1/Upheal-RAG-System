@@ -77,6 +77,9 @@ class FinalRoadmap(BaseModel):
     suggested_tasks: List[ClinicalTask] = Field(default_factory=list)
     safety_status: Literal["GREEN", "YELLOW", "RED"]
     next_checkup_days: int
+    days: List[RoadmapDay] = Field(default_factory=list)
+    total_days: int = 90
+    assessment_required: bool = False
 
 
 class LegacyRAGRecommendation(BaseModel):
@@ -92,12 +95,49 @@ class LegacyRAGRecommendation(BaseModel):
     pages: str
 
 
+class AppPercentage(BaseModel):
+    """Single app's percentage of total screen time."""
+
+    packageName: str
+    percentage: float
+    category: str
+
+
 class ScreenTimeInsights(BaseModel):
     totalMinutes: float = 0.0
     socialRatio: float = 0.0
     productivityRatio: float = 0.0
     topSocialApps: List[str] = Field(default_factory=list)
     topProductivityApps: List[str] = Field(default_factory=list)
+    appBreakdown: List[AppPercentage] = Field(default_factory=list)
+
+
+class RoadmapDay(BaseModel):
+    """
+    A single day in a 90-day roadmap.
+
+    - day_number: 1-90
+    - task: The assigned clinical task for this day
+    - phase: Quick Win / Ladder / Boss
+    - day_context: Contextual description for variety (e.g., "morning routine")
+    """
+
+    day_number: int = Field(..., ge=1, le=90)
+    task: ClinicalTask
+    phase: Literal["Quick Win", "Ladder", "Boss"]
+    day_context: str = ""
+
+
+class ReassessmentStatus(BaseModel):
+    """Status check for whether user needs to retake assessment."""
+
+    user_id: str
+    roadmap_id: Optional[str] = None
+    roadmap_status: Optional[str] = None
+    current_day: Optional[int] = None
+    total_days: int = 90
+    assessment_required: bool = False
+    days_since_last_assessment: Optional[int] = None
 
 
 class AssessGatewayResponse(FinalRoadmap):

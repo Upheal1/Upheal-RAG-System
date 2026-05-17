@@ -30,9 +30,11 @@ class TestLastIngestionFromMetadata:
         mock_meta.return_value = {"last_ingestion": "2026-04-13T10:00:00Z"}
         assert _last_ingestion_from_metadata() == "2026-04-13T10:00:00Z"
 
+    @patch("pathlib.Path.is_file")
     @patch("services.knowledge_base.router._kb.get_collection_metadata")
-    def test_returns_none_when_no_metadata(self, mock_meta):
+    def test_returns_none_when_no_metadata(self, mock_meta, mock_is_file):
         mock_meta.return_value = {}
+        mock_is_file.return_value = False
         assert _last_ingestion_from_metadata() is None
 
 
@@ -50,13 +52,15 @@ class TestHealthCheck:
         assert resp.storage_status == "healthy"
         assert resp.last_ingestion == "2026-04-13T10:00:00Z"
 
+    @patch("pathlib.Path.is_file")
     @patch("services.knowledge_base.router._kb.is_healthy")
     @patch("services.knowledge_base.router._kb.get_document_count")
     @patch("services.knowledge_base.router._kb.get_collection_metadata")
-    def test_degraded_when_empty(self, mock_meta, mock_count, mock_healthy):
+    def test_degraded_when_empty(self, mock_meta, mock_count, mock_healthy, mock_is_file):
         mock_healthy.return_value = True
         mock_count.return_value = 0
         mock_meta.return_value = {}
+        mock_is_file.return_value = False
 
         resp = health_check()
         assert resp.indexed_tasks == 0
