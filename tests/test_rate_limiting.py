@@ -67,10 +67,12 @@ class TestHealthEndpointNoRateLimit:
     def test_health_endpoint_imports_correctly(self):
         from services.gateway.main import app
 
-        route = None
-        for r in app.routes:
-            if hasattr(r, "path") and r.path == "/health":
-                route = r
-                break
-        assert route is not None
-        assert route.methods == {"GET"}
+        routes = [r for r in app.routes if hasattr(r, "path") and r.path == "/health"]
+        assert len(routes) > 0
+        
+        # Check that GET and HEAD methods are both available
+        all_methods = set()
+        for route in routes:
+            all_methods.update(route.methods)
+        assert "GET" in all_methods
+        assert "HEAD" in all_methods

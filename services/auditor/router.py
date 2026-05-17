@@ -64,6 +64,7 @@ def run_audit(payload: AuditRequest) -> AuditResult:
 
 
 @router.get("/health")
+@router.head("/health", include_in_schema=False)
 def health_check() -> dict[str, str]:
     """Health check for the auditor service."""
     return {"status": "ok", "service": "auditor"}

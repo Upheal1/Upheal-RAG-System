@@ -98,6 +98,7 @@ async def get_roadmap_status(
 
 
 @router.get("/health")
+@router.head("/health", include_in_schema=False)
 async def health():
     """Health check for roadmap service."""
     return {"status": "ok"}
