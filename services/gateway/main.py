@@ -106,13 +106,39 @@ except Exception:
 @app.get("/health", response_model=HealthResponse, tags=["gateway"])
 @app.head("/health", include_in_schema=False)
 def health_check() -> HealthResponse:
-    from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
-
-    _kb = ChromaKnowledgeBase()
+    """Lightweight health check that doesn't load heavy models."""
+    import os
+    
+    # Check if ChromaDB path exists without loading the model
+    chroma_path = os.environ.get("UPHEAL_CHROMA_PATH", "./data/vector_db_mini")
+    
+    # Simple path-based health check (no model loading)
+    kb_healthy = False
+    doc_count = 0
+    
+    try:
+        if chroma_path.startswith("http://") or chroma_path.startswith("https://"):
+            # For HTTP ChromaDB, assume healthy if URL is set
+            kb_healthy = True
+        else:
+            # For local path, check if directory exists
+            import os.path
+            kb_healthy = os.path.exists(chroma_path) and os.path.isdir(chroma_path)
+            
+            # Try to count files in the directory (lightweight check)
+            if kb_healthy:
+                try:
+                    files = os.listdir(chroma_path)
+                    doc_count = len([f for f in files if f.endswith('.sqlite3') or f.startswith('index')])
+                except:
+                    pass
+    except Exception:
+        pass
+    
     return HealthResponse(
         status="ok",
-        knowledge_base_healthy=_kb.is_healthy(),
-        knowledge_base_documents=_kb.get_document_count(),
+        knowledge_base_healthy=kb_healthy,
+        knowledge_base_documents=doc_count,
     )
 
 
