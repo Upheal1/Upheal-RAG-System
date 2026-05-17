@@ -14,7 +14,7 @@
           "key": "UPHEAL_CHROMA_PATH",
           "value": "${CHROMA_URL}"
         },
-        {
+        {.
           "key": "OLLAMA_BASE_URL",
           "value": "${OLLAMA_URL}"
         },
