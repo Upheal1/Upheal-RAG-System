@@ -1,0 +1,65 @@
+# Git
+.git
+.gitignore
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test outputs
+my_assessment_result.json
+test_response.json
+clinical_session_log.csv
+rag_input.json
+*.log
+logs/
+
+# Flutter/Dart
+my_app/build/
+my_app/.dart_tool/
+my_app/.flutter-plugins
+my_app/.flutter-plugins-dependencies
+my_app/.packages
+my_app/pubspec.lock
+
+# Node
+node_modules/
+
+# Docker
+*.env
+.deploy*
+
+# Documentation (not needed in container)
+docs/
+*.md
+
+# Large data files that aren't needed in container
+# Keep vector_db_mini but ignore other large data
+data/books/
+data/vector_db_mini_enriched/
