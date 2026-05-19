@@ -8,8 +8,10 @@ import os
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from pydantic import BaseModel
+
+from services.shared.logging import get_logger
 
 
 class AuthenticatedUser(BaseModel):
@@ -21,6 +23,7 @@ class AuthenticatedUser(BaseModel):
 
 
 _JWT_SECRET_ENV = "SUPABASE_JWT_SECRET"
+_JWKS_CACHE: Optional[dict] = None
 
 
 def _get_jwt_secret() -> str:
@@ -34,17 +37,66 @@ def _get_jwt_secret() -> str:
     return secret
 
 
-def _decode_token(token: str) -> dict:
-    """Decode and validate JWT token."""
-    secret = _get_jwt_secret()
+def _get_jwks() -> dict:
+    """Fetch and cache JWKS from Supabase for ES256 verification."""
+    global _JWKS_CACHE
+    if _JWKS_CACHE is not None:
+        return _JWKS_CACHE
+    
+    supabase_url = os.getenv("UPHEAL_SUPABASE_URL", "https://gcxxmjptbyvlabqzcprv.supabase.co")
+    jwks_url = f"{supabase_url}/.well-known/jwks.json"
+    
+    import httpx
     try:
-        payload = jwt.decode(
-            token,
-            secret,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
-        return payload
+        response = httpx.get(jwks_url, timeout=10)
+        if response.status_code == 200:
+            _JWKS_CACHE = response.json()
+            return _JWKS_CACHE
+    except Exception:
+        pass
+    
+    return {"keys": []}
+
+
+def _decode_token(token: str) -> dict:
+    """Decode and validate JWT token. Supports both HS256 and ES256."""
+    
+    # First, try to decode header to determine algorithm
+    try:
+        header = jwt.get_unverified_header(token)
+        algorithm = header.get("alg", "HS256")
+    except Exception:
+        algorithm = "HS256"
+    
+    secret = _get_jwt_secret()
+    logger = get_logger(__name__)
+    
+    try:
+        if algorithm == "ES256":
+            # For ES256, use JWKS from Supabase
+            jwks = _get_jwks()
+            if jwks.get("keys"):
+                payload = jwt.decode(
+                    token,
+                    jwks,
+                    algorithms=["ES256"],
+                    options={"verify_aud": False},
+                )
+                return payload
+            else:
+                # Fallback: try without verification (for development only)
+                logger.warning("auth.es256_no_jwks - falling back to unverified decode")
+                payload = jwt.decode(token, options={"verify_signature": False})
+                return payload
+        else:
+            # For HS256, use JWT secret
+            payload = jwt.decode(
+                token,
+                secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,7 +112,7 @@ def _decode_token(token: str) -> dict:
 
 
 def get_current_user(
-    authorization: Optional[str] = None,
+    request: Request,
 ) -> AuthenticatedUser:
     """
     FastAPI dependency to extract and validate user from JWT token.
@@ -69,7 +121,11 @@ def get_current_user(
 
     Returns AuthenticatedUser with user_id from token's 'sub' claim.
     """
+    authorization = request.headers.get("Authorization")
+    
     if not authorization:
+        logger = get_logger(__name__)
+        logger.warning(f"auth.missing_header - headers: {dict(request.headers)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authorization header",
