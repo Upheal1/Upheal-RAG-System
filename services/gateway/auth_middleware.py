@@ -8,6 +8,8 @@ import os
 from typing import Optional
 
 import jwt
+from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientError
 from fastapi import Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -23,7 +25,7 @@ class AuthenticatedUser(BaseModel):
 
 
 _JWT_SECRET_ENV = "SUPABASE_JWT_SECRET"
-_JWKS_CACHE: Optional[dict] = None
+_JWKS_CLIENTS: dict[str, PyJWKClient] = {}
 
 
 def _get_jwt_secret() -> str:
@@ -37,25 +39,33 @@ def _get_jwt_secret() -> str:
     return secret
 
 
-def _get_jwks() -> dict:
-    """Fetch and cache JWKS from Supabase for ES256 verification."""
-    global _JWKS_CACHE
-    if _JWKS_CACHE is not None:
-        return _JWKS_CACHE
-    
-    supabase_url = os.getenv("UPHEAL_SUPABASE_URL", "https://gcxxmjptbyvlabqzcprv.supabase.co")
-    jwks_url = f"{supabase_url}/.well-known/jwks.json"
-    
-    import httpx
+def _get_jwks_url() -> str:
+    """Build the Supabase JWKS URL used for ES256 token verification."""
+    supabase_url = os.getenv(
+        "UPHEAL_SUPABASE_URL",
+        "https://gcxxmjptbyvlabqzcprv.supabase.co",
+    ).rstrip("/")
+    return f"{supabase_url}/.well-known/jwks.json"
+
+
+def _get_jwks_client(jwks_url: Optional[str] = None) -> PyJWKClient:
+    """Return a cached PyJWT JWKS client for Supabase signing key lookup."""
+    url = jwks_url or _get_jwks_url()
+    if url not in _JWKS_CLIENTS:
+        _JWKS_CLIENTS[url] = PyJWKClient(url)
+    return _JWKS_CLIENTS[url]
+
+
+def _get_es256_signing_key(token: str):
+    """Resolve the ES256 signing key that matches the JWT header kid."""
     try:
-        response = httpx.get(jwks_url, timeout=10)
-        if response.status_code == 200:
-            _JWKS_CACHE = response.json()
-            return _JWKS_CACHE
-    except Exception:
-        pass
-    
-    return {"keys": []}
+        return _get_jwks_client().get_signing_key_from_jwt(token).key
+    except PyJWKClientError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Unable to resolve token signing key: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def _decode_token(token: str) -> dict:
@@ -68,35 +78,25 @@ def _decode_token(token: str) -> dict:
     except Exception:
         algorithm = "HS256"
     
-    secret = _get_jwt_secret()
-    logger = get_logger(__name__)
-    
     try:
         if algorithm == "ES256":
-            # For ES256, use JWKS from Supabase
-            jwks = _get_jwks()
-            if jwks.get("keys"):
-                payload = jwt.decode(
-                    token,
-                    jwks,
-                    algorithms=["ES256"],
-                    options={"verify_aud": False},
-                )
-                return payload
-            else:
-                # Fallback: try without verification (for development only)
-                logger.warning("auth.es256_no_jwks - falling back to unverified decode")
-                payload = jwt.decode(token, options={"verify_signature": False})
-                return payload
-        else:
-            # For HS256, use JWT secret
+            signing_key = _get_es256_signing_key(token)
             payload = jwt.decode(
                 token,
-                secret,
-                algorithms=["HS256"],
+                signing_key,
+                algorithms=["ES256"],
                 options={"verify_aud": False},
             )
             return payload
+
+        secret = _get_jwt_secret()
+        payload = jwt.decode(
+            token,
+            secret,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+        return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
