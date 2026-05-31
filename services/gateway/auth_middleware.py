@@ -8,8 +8,12 @@ import os
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientError
+from fastapi import Depends, HTTPException, Request, status
 from pydantic import BaseModel
+
+from services.shared.logging import get_logger
 
 
 class AuthenticatedUser(BaseModel):
@@ -21,6 +25,7 @@ class AuthenticatedUser(BaseModel):
 
 
 _JWT_SECRET_ENV = "SUPABASE_JWT_SECRET"
+_JWKS_CLIENTS: dict[str, PyJWKClient] = {}
 
 
 def _get_jwt_secret() -> str:
@@ -34,10 +39,57 @@ def _get_jwt_secret() -> str:
     return secret
 
 
-def _decode_token(token: str) -> dict:
-    """Decode and validate JWT token."""
-    secret = _get_jwt_secret()
+def _get_jwks_url() -> str:
+    """Build the Supabase JWKS URL used for ES256 token verification."""
+    supabase_url = os.getenv(
+        "UPHEAL_SUPABASE_URL",
+        "https://gcxxmjptbyvlabqzcprv.supabase.co",
+    ).rstrip("/")
+    return f"{supabase_url}/.well-known/jwks.json"
+
+
+def _get_jwks_client(jwks_url: Optional[str] = None) -> PyJWKClient:
+    """Return a cached PyJWT JWKS client for Supabase signing key lookup."""
+    url = jwks_url or _get_jwks_url()
+    if url not in _JWKS_CLIENTS:
+        _JWKS_CLIENTS[url] = PyJWKClient(url)
+    return _JWKS_CLIENTS[url]
+
+
+def _get_es256_signing_key(token: str):
+    """Resolve the ES256 signing key that matches the JWT header kid."""
     try:
+        return _get_jwks_client().get_signing_key_from_jwt(token).key
+    except PyJWKClientError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Unable to resolve token signing key: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def _decode_token(token: str) -> dict:
+    """Decode and validate JWT token. Supports both HS256 and ES256."""
+    
+    # First, try to decode header to determine algorithm
+    try:
+        header = jwt.get_unverified_header(token)
+        algorithm = header.get("alg", "HS256")
+    except Exception:
+        algorithm = "HS256"
+    
+    try:
+        if algorithm == "ES256":
+            signing_key = _get_es256_signing_key(token)
+            payload = jwt.decode(
+                token,
+                signing_key,
+                algorithms=["ES256"],
+                options={"verify_aud": False},
+            )
+            return payload
+
+        secret = _get_jwt_secret()
         payload = jwt.decode(
             token,
             secret,
@@ -60,7 +112,7 @@ def _decode_token(token: str) -> dict:
 
 
 def get_current_user(
-    authorization: Optional[str] = None,
+    request: Request,
 ) -> AuthenticatedUser:
     """
     FastAPI dependency to extract and validate user from JWT token.
@@ -69,7 +121,11 @@ def get_current_user(
 
     Returns AuthenticatedUser with user_id from token's 'sub' claim.
     """
+    authorization = request.headers.get("Authorization")
+    
     if not authorization:
+        logger = get_logger(__name__)
+        logger.warning(f"auth.missing_header - headers: {dict(request.headers)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authorization header",

@@ -1,5 +1,6 @@
 import os
 import time
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import jwt
@@ -8,9 +9,9 @@ from fastapi import HTTPException
 
 from services.gateway.auth_middleware import (
     AuthenticatedUser,
-    get_current_user,
-    _get_jwt_secret,
     _decode_token,
+    _get_jwt_secret,
+    get_current_user,
 )
 
 
@@ -27,6 +28,13 @@ def create_test_token(
     exp = int(time.time()) - 3600 if expired else int(time.time()) + 3600
     payload = {"sub": sub, "email": email, "exp": exp}
     return jwt.encode(payload, secret, algorithm="HS256")
+
+
+def make_request(authorization: str | None = None):
+    headers = {}
+    if authorization is not None:
+        headers["Authorization"] = authorization
+    return SimpleNamespace(headers=headers)
 
 
 class TestGetJwtSecret:
@@ -72,9 +80,42 @@ class TestDecodeToken:
         payload = {"email": "test@example.com", "exp": int(time.time()) + 3600}
         token = jwt.encode(payload, TEST_SECRET, algorithm="HS256")
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(f"Bearer {token}")
+            get_current_user(make_request(f"Bearer {token}"))
         assert exc_info.value.status_code == 401
         assert "sub" in exc_info.value.detail.lower()
+
+    def test_valid_es256_token_uses_resolved_jwks_key(self) -> None:
+        payload = {
+            "sub": "supabase-user-123",
+            "email": "supabase@example.com",
+            "exp": int(time.time()) + 3600,
+            "iss": "https://example.supabase.co/auth/v1",
+            "aud": "authenticated",
+        }
+        token = (
+            "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3Qtc3VwYWJhc2Uta2V5IiwidHlwIjoiSldUIn0"
+            ".eyJzdWIiOiJzdXBhYmFzZS11c2VyLTEyMyIsImVtYWlsIjoic3VwYWJhc2VAZXhhbXBsZS5jb20ifQ"
+            ".c2lnbmF0dXJl"
+        )
+        signing_key = object()
+
+        with patch(
+            "services.gateway.auth_middleware._get_es256_signing_key",
+            return_value=signing_key,
+        ), patch(
+            "services.gateway.auth_middleware.jwt.decode",
+            return_value=payload,
+        ) as decode:
+            decoded = _decode_token(token)
+
+        decode.assert_called_once_with(
+            token,
+            signing_key,
+            algorithms=["ES256"],
+            options={"verify_aud": False},
+        )
+        assert decoded["sub"] == "supabase-user-123"
+        assert decoded["email"] == "supabase@example.com"
 
 
 class TestGetCurrentUser:
@@ -85,25 +126,25 @@ class TestGetCurrentUser:
 
     def test_missing_auth_header_raises_401(self) -> None:
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user(None)
+            get_current_user(make_request())
         assert exc_info.value.status_code == 401
         assert "Missing authorization header" in exc_info.value.detail
 
     def test_invalid_format_raises_401(self) -> None:
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user("InvalidToken")
+            get_current_user(make_request("InvalidToken"))
         assert exc_info.value.status_code == 401
         assert "Invalid authorization header format" in exc_info.value.detail
 
     def test_non_bearer_raises_401(self) -> None:
         with pytest.raises(HTTPException) as exc_info:
-            get_current_user("Basic sometoken")
+            get_current_user(make_request("Basic sometoken"))
         assert exc_info.value.status_code == 401
         assert "Invalid authorization header format" in exc_info.value.detail
 
     def test_valid_token_returns_authenticated_user(self) -> None:
         token = create_test_token("user-abc-123", "user@test.com")
-        user = get_current_user(f"Bearer {token}")
+        user = get_current_user(make_request(f"Bearer {token}"))
         assert isinstance(user, AuthenticatedUser)
         assert user.user_id == "user-abc-123"
         assert user.email == "user@test.com"
@@ -111,7 +152,7 @@ class TestGetCurrentUser:
     def test_token_without_email_returns_none(self) -> None:
         payload = {"sub": "user-no-email", "exp": int(time.time()) + 3600}
         token = jwt.encode(payload, TEST_SECRET, algorithm="HS256")
-        user = get_current_user(f"Bearer {token}")
+        user = get_current_user(make_request(f"Bearer {token}"))
         assert user.user_id == "user-no-email"
         assert user.email is None
 
