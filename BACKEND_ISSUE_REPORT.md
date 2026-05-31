@@ -1,130 +1,90 @@
-# Backend Issue: Authorization Header Not Being Read
+# Backend Issue Report: Auth Middleware JWT Decode Failure
 
 ## Summary
+`POST /api/assess` on Render returns `401 Unauthorized`. The error progressed through three stages as fixes were applied.
 
-The Flutter frontend is sending the `Authorization: Bearer <token>` header correctly, but the `/api/assess` endpoint on the Render server is returning `401 Missing authorization header`.
+## Timeline
 
-## Issue Details
+| Stage | Error | Root Cause | Status |
+|-------|-------|------------|--------|
+| 1 | `Missing authorization header` | `get_current_user(authorization: Optional[str])` — FastAPI cannot inject header as plain string param | ✅ Fixed in `667140b` |
+| 2 | `Unable to resolve token signing key: HTTP Error 404` | Flutter SDK sends ES256 tokens; backend tried to fetch JWKS from `{supabase_url}/.well-known/jwks.json` — returns 404 | ✅ Fixed in `d6ed786` |
+| 3 | Unknown — needs deployment | JWKS URL 404 persists; falls back to HS256 or unverified decode | 🔴 Not yet tested on Render |
 
-| Item | Value |
-|------|-------|
-| **API URL** | `https://upheal-rag.onrender.com` |
-| **Endpoint** | `POST /api/assess` |
-| **Error** | `401 Unauthorized` - `{"detail":"Missing authorization header"}` |
-| **Response Header** | `www-authenticate: Bearer` |
+---
 
-## What We've Verified (Flutter Side)
+## Fix Applied: Stage 1 — Header Not Read (`667140b`)
 
-### ✅ Connectivity Works
-```
-GET https://upheal-rag.onrender.com/health
-→ 200 OK
-→ {"status":"ok","knowledge_base_healthy":true,"knowledge_base_documents":2}
-```
+### Problem
+`get_current_user` used `authorization: Optional[str] = None` as a FastAPI dependency parameter. FastAPI has no built-in way to inject a request header value into a plain string parameter — it only injects the *entire Request* object.
 
-### ✅ Authorization Header IS Being Sent
-The Flutter logs clearly show the Authorization header with a valid Supabase JWT:
-
-```
-🔐 FULL HEADERS TO SEND:
-  Content-Type: application/json
-  Authorization: Bearer eyJhbGciOiJFUzI1NiIs... (valid JWT token)
-```
-
-### ✅ Token is Valid
-- Token is a valid Supabase JWT (starts with `eyJ...`)
-- Contains proper claims: `sub` (user ID), `email`, `exp`, `iat`
-- Token is not expired
-
-## Request Being Sent
-
-```http
-POST https://upheal-rag.onrender.com/api/assess
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6ImRjNWI5YmMyLWM2NTItNDI5Ny05YmMzLTQyOTMwODJiOWU3NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2djeHhtanB0Ynl2bGFicXpjcHJ2LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIzYTZiNGE0Yy00OGNmLTQ2MWUtODM3Mi04MjQ2MmJlNTdlNmUiLCJhdWQiOiJhdXRoZW50aWNudGVkIiwiZXhwIjoxNzc5MTI1MTc1LCJpYXQiOjE3NzkxMjE1NzUsImVtYWlsIjoiYXBpdGVzdEBnbWFpbC5jb20iLCJyb2xlIjoiYXV0aGVudGljYXRlZCJ9.55aOPLbqwf8LIDsN3D1C1MrbdheSJ9w-AlGWsty20_E6ud
-
-{
-  "answers": {"gad7_q1": 0, "gad7_q2": 1, ...},
-  "user_id": "3a6b4a4c-48cf-461e-8372-82462be57e6e"
-}
-```
-
-## Server Response
-
-```http
-401 Unauthorized
-www-authenticate: Bearer
-
-{"detail":"Missing authorization header"}
-```
-
-## Likely Causes
-
-1. **Auth middleware reading header incorrectly** - The FastAPI OAuth2Bearer dependency may not be reading the Authorization header properly.
-
-2. **Cloudflare stripping headers** - Cloudflare on Render may have Transform Rules removing certain headers.
-
-3. **Route ordering issue** - Another route might be catching the request before the auth middleware runs.
-
-4. **CORS preflight handling** - OPTIONS preflight requests may not be handled correctly.
-
-## ✅ FIX APPLIED
-
-The issue was in `services/gateway/auth_middleware.py`. Two bugs were found and fixed:
-
-### Bug 1: Missing Request Parameter
-The `get_current_user` function expected an `authorization` parameter but FastAPI had no way to automatically inject the header into it.
-
-**Fix**: Changed to use `request: Request` and extract the header from the request:
+### Before
 ```python
-# BEFORE (broken):
 def get_current_user(
-    authorization: Optional[str] = None,  # Never gets populated!
+    authorization: Optional[str] = None,  # Never populated
 ) -> AuthenticatedUser:
+```
 
-# AFTER (fixed):
+### After
+```python
 def get_current_user(
     request: Request,
 ) -> AuthenticatedUser:
     authorization = request.headers.get("Authorization")
 ```
 
-### Bug 2: ES256 Token Support
-The Flutter Supabase SDK sends ES256 (ECDSA) tokens, but the backend only supported HS256.
+---
 
-**Fix**: Added JWKS fetching from Supabase to support ES256:
-```python
-def _decode_token(token: str) -> dict:
-    # Detect algorithm from token header
-    header = jwt.get_unverified_header(token)
-    
-    if algorithm == "ES256":
-        # Fetch JWKS from Supabase for verification
-        jwks = _get_jwks()
-        payload = jwt.decode(token, jwks, algorithms=["ES256"])
-    else:
-        # HS256 with JWT secret
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
-```
+## Fix Applied: Stage 2 — JWKS URL 404 (`d6ed786`)
 
-### Files Changed
+### Problem
+Flutter Supabase SDK sends ES256 (ECDSA) tokens, not HS256. The original code detected `alg: ES256` from the token header and attempted to fetch JWKS from a single URL, which returned 404.
+
+### New Strategy (3-tier fallback)
+1. **HS256** with `SUPABASE_JWT_SECRET` — tried first regardless of token header
+2. **ES256 via `PyJWKClient`** — tries both JWKS URLs
+3. **Unverified decode** — logs warning, for development only
+
+### Changed Files
 - `services/gateway/auth_middleware.py`
 
-### Next Steps
-1. Deploy the updated backend to Render
-2. Test the Flutter app again
-3. Verify `/api/assess` returns 200 OK
+---
 
-## Documentation Reference
+## Token Details (Flutter Supabase SDK)
 
-- **Frontend Integration Guide**: `FLUTTER_INTEGRATION.md`
-- **RAG Integration Guide**: `FRONTEND_RAG_INTEGRATION_GUIDE.md`
+### Header
+```json
+{
+  "alg": "ES256",
+  "kid": "dc5b9bc2-c652-4297-9bc3-4293082b9e76",
+  "typ": "JWT"
+}
+```
 
-According to `FLUTTER_INTEGRATION.md`, the `/api/assess` endpoint requires:
-- Supabase JWT in `Authorization: Bearer <token>` header
-- Content-Type: application/json
+### Payload
+```json
+{
+  "iss": "https://gcxxmjptbyvlabqzcprv.supabase.co/auth/v1",
+  "sub": "3a6b4a4c-48cf-461e-8372-82462be57e6e",
+  "aud": "authenticated",
+  "exp": 1779125175,
+  "iat": 1779121575,
+  "email": "apitester@gmail.com",
+  "role": "authenticated"
+}
+```
 
-## Contact
+### Supabase Project
+- URL: `https://gcxxmjptbyvlabqzcprv.supabase.co`
+- Issuer: `{url}/auth/v1`
+- JWKS candidates:
+  - `{url}/.well-known/jwks.json`
+  - `{url}/auth/v1/.well-known/jwks.json`
 
-Flutter/Frontend Developer: Abdalrahman  
-Backend Developer: Hozaifa/Yahya
+---
+
+## Next Steps
+1. Deploy `d6ed786` to Render
+2. Test POST `/api/assess` with Flutter
+3. If HS256 verification fails, check if `SUPABASE_JWT_SECRET` matches the key used for ES256 tokens
+4. If JWKS is required, enable it in Supabase Auth settings or open a Supabase support ticket
