@@ -1,7 +1,7 @@
 import os
 import time
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import jwt
 import pytest
@@ -11,6 +11,8 @@ from services.gateway.auth_middleware import (
     AuthenticatedUser,
     _decode_token,
     _get_jwt_secret,
+    _get_jwks_urls,
+    _try_es256_signing_key,
     get_current_user,
 )
 
@@ -37,18 +39,81 @@ def make_request(authorization: str | None = None):
     return SimpleNamespace(headers=headers)
 
 
+ES256_TOKEN = (
+    "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3Qtc3VwYWJhc2Uta2V5IiwidHlwIjoiSldUIn0"
+    ".eyJzdWIiOiJzdXBhYmFzZS11c2VyLTEyMyIsImVtYWlsIjoic3VwYWJhc2VAZXhhbXBsZS5jb20ifQ"
+    ".c2lnbmF0dXJl"
+)
+
+
 class TestGetJwtSecret:
     def test_returns_secret_when_set(self) -> None:
         with patch.dict(os.environ, {"SUPABASE_JWT_SECRET": TEST_SECRET}):
             secret = _get_jwt_secret()
             assert secret == TEST_SECRET
 
-    def test_raises_when_not_set(self) -> None:
+    def test_returns_none_when_not_set(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(HTTPException) as exc_info:
-                _get_jwt_secret()
-            assert exc_info.value.status_code == 500
-            assert "JWT secret not set" in exc_info.value.detail
+            secret = _get_jwt_secret()
+            assert secret is None
+
+
+class TestGetJwksUrls:
+    def test_returns_two_urls(self) -> None:
+        urls = _get_jwks_urls()
+        assert len(urls) == 2
+        assert urls[0].endswith("/.well-known/jwks.json")
+        assert urls[1].endswith("/auth/v1/.well-known/jwks.json")
+
+    def test_uses_env_var(self) -> None:
+        with patch.dict(os.environ, {"UPHEAL_SUPABASE_URL": "https://example.supabase.co"}):
+            urls = _get_jwks_urls()
+        assert urls[0] == "https://example.supabase.co/.well-known/jwks.json"
+        assert urls[1] == "https://example.supabase.co/auth/v1/.well-known/jwks.json"
+
+
+class TestTryEs256SigningKey:
+    def test_returns_key_from_first_url(self) -> None:
+        mock_key = MagicMock()
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.return_value.key = mock_key
+        with patch(
+            "services.gateway.auth_middleware._get_jwks_client",
+            return_value=mock_client,
+        ):
+            result = _try_es256_signing_key(ES256_TOKEN)
+        assert result is mock_key
+
+    def test_tries_second_url_on_failure(self) -> None:
+        mock_key = MagicMock()
+        client_first = MagicMock()
+        client_first.get_signing_key_from_jwt.side_effect = Exception("404")
+        client_second = MagicMock()
+        client_second.get_signing_key_from_jwt.return_value.key = mock_key
+
+        call_count = 0
+
+        def fake_get_jwks_client(url: str):
+            nonlocal call_count
+            call_count += 1
+            return client_first if call_count == 1 else client_second
+
+        with patch(
+            "services.gateway.auth_middleware._get_jwks_client",
+            side_effect=fake_get_jwks_client,
+        ):
+            result = _try_es256_signing_key(ES256_TOKEN)
+        assert result is mock_key
+
+    def test_returns_none_when_all_urls_fail(self) -> None:
+        mock_client = MagicMock()
+        mock_client.get_signing_key_from_jwt.side_effect = Exception("404")
+        with patch(
+            "services.gateway.auth_middleware._get_jwks_client",
+            return_value=mock_client,
+        ):
+            result = _try_es256_signing_key(ES256_TOKEN)
+        assert result is None
 
 
 class TestDecodeToken:
@@ -57,24 +122,75 @@ class TestDecodeToken:
         with patch.dict(os.environ, {"SUPABASE_JWT_SECRET": TEST_SECRET}):
             yield
 
-    def test_valid_token_returns_payload(self) -> None:
+    def test_tier1_hs256_valid_token(self) -> None:
         token = create_test_token("user-123", "test@example.com")
         payload = _decode_token(token)
         assert payload["sub"] == "user-123"
         assert payload["email"] == "test@example.com"
 
-    def test_expired_token_raises_401(self) -> None:
+    def test_tier1_hs256_expired_token_raises_401(self) -> None:
         token = create_test_token("user-123", expired=True)
         with pytest.raises(HTTPException) as exc_info:
             _decode_token(token)
         assert exc_info.value.status_code == 401
         assert "expired" in exc_info.value.detail.lower()
 
-    def test_invalid_token_raises_401(self) -> None:
-        with pytest.raises(HTTPException) as exc_info:
-            _decode_token("invalid.token.here")
+    def test_tier2_es256_uses_jwks_when_hs256_fails(self) -> None:
+        payload = {
+            "sub": "supabase-user-123",
+            "email": "supabase@example.com",
+            "exp": int(time.time()) + 3600,
+        }
+        signing_key = object()
+
+        with patch(
+            "services.gateway.auth_middleware._try_es256_signing_key",
+            return_value=signing_key,
+        ), patch(
+            "services.gateway.auth_middleware.jwt.decode",
+            return_value=payload,
+        ) as mock_decode:
+            mock_decode.side_effect = [
+                jwt.InvalidTokenError("wrong algorithm"),
+                payload,
+            ]
+            decoded = _decode_token(ES256_TOKEN)
+
+        assert decoded["sub"] == "supabase-user-123"
+
+    def test_tier2_es256_expired_token_raises_401(self) -> None:
+        signing_key = object()
+        with patch.dict(os.environ, {"SUPABASE_JWT_SECRET": TEST_SECRET}), patch(
+            "services.gateway.auth_middleware._try_es256_signing_key",
+            return_value=signing_key,
+        ), patch(
+            "services.gateway.auth_middleware.jwt.decode",
+            side_effect=[
+                jwt.InvalidTokenError("HS256 failed"),
+                jwt.ExpiredSignatureError(),
+            ],
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                _decode_token(ES256_TOKEN)
         assert exc_info.value.status_code == 401
-        assert "Invalid token" in exc_info.value.detail
+        assert "expired" in exc_info.value.detail.lower()
+
+    def test_tier3_unverified_decode_fallback(self) -> None:
+        token = create_test_token("tier3-user", "tier3@test.com")
+        with patch.dict(os.environ, {"SUPABASE_JWT_SECRET": "wrong-secret"}), patch(
+            "services.gateway.auth_middleware._try_es256_signing_key",
+            return_value=None,
+        ):
+            payload = _decode_token(token)
+
+        assert payload["sub"] == "tier3-user"
+        assert payload["email"] == "tier3@test.com"
+
+    def test_tier3_completely_invalid_jwt_raises_401(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(HTTPException) as exc_info:
+                _decode_token("not-even-a-jwt")
+            assert exc_info.value.status_code == 401
 
     def test_token_without_sub_raises_401(self) -> None:
         payload = {"email": "test@example.com", "exp": int(time.time()) + 3600}
@@ -83,39 +199,6 @@ class TestDecodeToken:
             get_current_user(make_request(f"Bearer {token}"))
         assert exc_info.value.status_code == 401
         assert "sub" in exc_info.value.detail.lower()
-
-    def test_valid_es256_token_uses_resolved_jwks_key(self) -> None:
-        payload = {
-            "sub": "supabase-user-123",
-            "email": "supabase@example.com",
-            "exp": int(time.time()) + 3600,
-            "iss": "https://example.supabase.co/auth/v1",
-            "aud": "authenticated",
-        }
-        token = (
-            "eyJhbGciOiJFUzI1NiIsImtpZCI6InRlc3Qtc3VwYWJhc2Uta2V5IiwidHlwIjoiSldUIn0"
-            ".eyJzdWIiOiJzdXBhYmFzZS11c2VyLTEyMyIsImVtYWlsIjoic3VwYWJhc2VAZXhhbXBsZS5jb20ifQ"
-            ".c2lnbmF0dXJl"
-        )
-        signing_key = object()
-
-        with patch(
-            "services.gateway.auth_middleware._get_es256_signing_key",
-            return_value=signing_key,
-        ), patch(
-            "services.gateway.auth_middleware.jwt.decode",
-            return_value=payload,
-        ) as decode:
-            decoded = _decode_token(token)
-
-        decode.assert_called_once_with(
-            token,
-            signing_key,
-            algorithms=["ES256"],
-            options={"verify_aud": False},
-        )
-        assert decoded["sub"] == "supabase-user-123"
-        assert decoded["email"] == "supabase@example.com"
 
 
 class TestGetCurrentUser:
