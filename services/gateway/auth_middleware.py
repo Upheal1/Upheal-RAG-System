@@ -156,7 +156,7 @@ def _decode_token(token: str) -> dict:
     _logger.error(f"auth.decode_failed - errors={errors}")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=f"Invalid token: {'; '.join(errors)}",
+        detail=f"Invalid token: {'; '.join(errors) if errors else 'no verified decoding method succeeded'}",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
