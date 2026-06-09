@@ -175,9 +175,29 @@ class TestDecodeToken:
         assert exc_info.value.status_code == 401
         assert "expired" in exc_info.value.detail.lower()
 
-    def test_tier3_unverified_decode_fallback(self) -> None:
+    def test_unverified_decode_disabled_by_default(self) -> None:
         token = create_test_token("tier3-user", "tier3@test.com")
-        with patch.dict(os.environ, {"SUPABASE_JWT_SECRET": "wrong-secret"}), patch(
+        with patch.dict(
+            os.environ,
+            {"SUPABASE_JWT_SECRET": "wrong-secret-key-12345678901234567890"},
+        ), patch(
+            "services.gateway.auth_middleware._try_es256_signing_key",
+            return_value=None,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                _decode_token(token)
+
+        assert exc_info.value.status_code == 401
+
+    def test_unverified_decode_requires_dev_flag(self) -> None:
+        token = create_test_token("tier3-user", "tier3@test.com")
+        with patch.dict(
+            os.environ,
+            {
+                "SUPABASE_JWT_SECRET": "wrong-secret-key-12345678901234567890",
+                "ALLOW_UNVERIFIED_JWT": "true",
+            },
+        ), patch(
             "services.gateway.auth_middleware._try_es256_signing_key",
             return_value=None,
         ):
