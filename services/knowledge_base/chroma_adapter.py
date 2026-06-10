@@ -139,6 +139,7 @@ class ChromaKnowledgeBase:
             self.vector_db_path = vector_db_path
         else:
             from services.shared.pathing import resolve_chroma_path
+
             self.vector_db_path = resolve_chroma_path()
         self.collection_name = collection_name or os.environ.get(
             "UPHEAL_CHROMA_COLLECTION", "clinical_rag_mini"
@@ -159,9 +160,12 @@ class ChromaKnowledgeBase:
         try:
             from sentence_transformers import SentenceTransformer
             import chromadb
+            from chromadb.config import Settings
         except Exception as e:
             logger.warning("Knowledge base deps not available: %s", e)
             return
+
+        chroma_timeout = int(os.environ.get("CHROMA_TIMEOUT_SECONDS", "30"))
 
         logger.info("Loading vector DB: %s", self.vector_db_path)
         self._model = SentenceTransformer(self.model_name)
@@ -171,9 +175,20 @@ class ChromaKnowledgeBase:
             "https://"
         ):
             logger.info("Using HTTP ChromaDB client: %s", vector_db_path)
-            self._client = chromadb.HttpClient(host=vector_db_path)
+            self._client = chromadb.HttpClient(
+                host=vector_db_path,
+                settings=Settings(
+                    chroma_server_connect_timeout=chroma_timeout,
+                    chroma_server_read_timeout=chroma_timeout,
+                ),
+            )
         else:
-            self._client = chromadb.PersistentClient(path=vector_db_path)
+            self._client = chromadb.PersistentClient(
+                path=vector_db_path,
+                settings=Settings(
+                    chroma_server_connect_timeout=chroma_timeout,
+                ),
+            )
 
         self._collection = self._client.get_collection(name=self.collection_name)
 
