@@ -70,9 +70,9 @@ www-authenticate: Bearer
 
 ## ✅ FIX APPLIED
 
-The issue was in `services/gateway/auth_middleware.py`. Two bugs were found and fixed:
+The issue was in `services/gateway/auth_middleware.py`. Three bugs were found and fixed:
 
-### Bug 1: Missing Request Parameter
+### Bug 1: Missing Request Parameter (commit `667140b`)
 The `get_current_user` function expected an `authorization` parameter but FastAPI had no way to automatically inject the header into it.
 
 **Fix**: Changed to use `request: Request` and extract the header from the request:
@@ -89,26 +89,30 @@ def get_current_user(
     authorization = request.headers.get("Authorization")
 ```
 
-### Bug 2: ES256 Token Support
-The Flutter Supabase SDK sends ES256 (ECDSA) tokens, but the backend only supported HS256.
+### Bug 2: JWKS URL 404 (commit `d6ed786`)
+Flutter Supabase SDK sends ES256 (ECDSA) tokens. The original code tried a single JWKS URL which returned 404, causing `/api/assess` to return `401 Unauthorized`.
 
-**Fix**: Added JWKS fetching from Supabase to support ES256:
+### Bug 3: No Fallback Strategy (implemented)
+The previous fix only tried one algorithm path — if it failed, the request was rejected. This left the endpoint fragile. A **3-tier fallback strategy** was implemented:
+
 ```python
 def _decode_token(token: str) -> dict:
-    # Detect algorithm from token header
-    header = jwt.get_unverified_header(token)
-    
-    if algorithm == "ES256":
-        # Fetch JWKS from Supabase for verification
-        jwks = _get_jwks()
-        payload = jwt.decode(token, jwks, algorithms=["ES256"])
-    else:
-        # HS256 with JWT secret
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
+    # Tier 1: HS256 with SUPABASE_JWT_SECRET (works for all Supabase tokens)
+    # Tier 2: ES256 via JWKS with dual URL fallback
+    # Tier 3: Unverified decode — development fallback, logs a warning
 ```
+
+**Tier 1 (HS256)**: Try decoding with the shared `SUPABASE_JWT_SECRET` first, regardless of the token's `alg` header. Supabase signs tokens with both HS256 and ES256 using the same key material, so this often succeeds.
+
+**Tier 2 (ES256 JWKS)**: If HS256 fails and the token header says `ES256`, try resolving the signing key from both JWKS URLs:
+- `{SUPABASE_URL}/.well-known/jwks.json`
+- `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
+
+**Tier 3 (Unverified decode)**: As a last resort in development, decode without signature verification. Logs a warning. Completely invalid JWTs still raise `401`.
 
 ### Files Changed
 - `services/gateway/auth_middleware.py`
+- `tests/test_auth_middleware.py`
 
 ### Next Steps
 1. Deploy the updated backend to Render

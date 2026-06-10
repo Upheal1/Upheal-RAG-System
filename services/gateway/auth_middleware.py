@@ -25,90 +25,140 @@ class AuthenticatedUser(BaseModel):
 
 
 _JWT_SECRET_ENV = "SUPABASE_JWT_SECRET"
+_ALLOW_UNVERIFIED_JWT_ENV = "ALLOW_UNVERIFIED_JWT"
 _JWKS_CLIENTS: dict[str, PyJWKClient] = {}
+_logger = get_logger(__name__)
 
 
-def _get_jwt_secret() -> str:
-    """Get JWT secret from environment, with fallback for testing."""
-    secret = os.getenv(_JWT_SECRET_ENV)
-    if not secret:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server misconfiguration: JWT secret not set",
-        )
-    return secret
+def _get_jwt_secret() -> Optional[str]:
+    """Get JWT secret from environment (may be None if not configured)."""
+    return os.getenv(_JWT_SECRET_ENV)
 
 
-def _get_jwks_url() -> str:
-    """Build the Supabase JWKS URL used for ES256 token verification."""
+def _allow_unverified_jwt() -> bool:
+    """Return whether unsigned JWT decoding is explicitly allowed for local dev."""
+    return os.getenv(_ALLOW_UNVERIFIED_JWT_ENV, "").lower() in {"1", "true", "yes"}
+
+
+def _get_jwks_urls() -> list[str]:
+    """Build the list of Supabase JWKS URLs to try for ES256 verification."""
     supabase_url = os.getenv(
         "UPHEAL_SUPABASE_URL",
         "https://gcxxmjptbyvlabqzcprv.supabase.co",
     ).rstrip("/")
-    return f"{supabase_url}/.well-known/jwks.json"
+    return [
+        f"{supabase_url}/.well-known/jwks.json",
+        f"{supabase_url}/auth/v1/.well-known/jwks.json",
+    ]
 
 
-def _get_jwks_client(jwks_url: Optional[str] = None) -> PyJWKClient:
+def _get_jwks_client(jwks_url: str) -> PyJWKClient:
     """Return a cached PyJWT JWKS client for Supabase signing key lookup."""
-    url = jwks_url or _get_jwks_url()
-    if url not in _JWKS_CLIENTS:
-        _JWKS_CLIENTS[url] = PyJWKClient(url)
-    return _JWKS_CLIENTS[url]
+    if jwks_url not in _JWKS_CLIENTS:
+        _JWKS_CLIENTS[jwks_url] = PyJWKClient(jwks_url)
+    return _JWKS_CLIENTS[jwks_url]
 
 
-def _get_es256_signing_key(token: str):
-    """Resolve the ES256 signing key that matches the JWT header kid."""
-    try:
-        return _get_jwks_client().get_signing_key_from_jwt(token).key
-    except PyJWKClientError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Unable to resolve token signing key: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+def _try_es256_signing_key(token: str) -> Optional[object]:
+    """Try to resolve the ES256 signing key from all JWKS URLs."""
+    for url in _get_jwks_urls():
+        try:
+            client = _get_jwks_client(url)
+            key = client.get_signing_key_from_jwt(token).key
+            _logger.info(f"auth.es256_key_resolved - url={url}")
+            return key
+        except PyJWKClientError:
+            _logger.warning(f"auth.es256_jwks_miss - url={url}")
+            continue
+        except Exception as exc:
+            _logger.warning(f"auth.es256_jwks_error - url={url} error={exc}")
+            continue
+    return None
 
 
 def _decode_token(token: str) -> dict:
-    """Decode and validate JWT token. Supports both HS256 and ES256."""
-    
-    # First, try to decode header to determine algorithm
+    """Decode and validate JWT token using verified methods first.
+
+    Tier 1: HS256 with SUPABASE_JWT_SECRET for shared-secret tokens.
+    Tier 2: ES256 via JWKS for ECDSA tokens.
+    Tier 3: optional unverified decode, enabled only for local development.
+    """
+
+    errors: list[str] = []
+
+    # Tier 1: HS256 with shared secret
+    secret = _get_jwt_secret()
+    if secret:
+        try:
+            payload = jwt.decode(
+                token,
+                secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            _logger.info("auth.token_decoded - tier=HS256")
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except jwt.InvalidTokenError as e:
+            errors.append(f"HS256: {e}")
+            _logger.debug(f"auth.hs256_failed - error={e}")
+
+    # Tier 2: ES256 via JWKS
     try:
         header = jwt.get_unverified_header(token)
         algorithm = header.get("alg", "HS256")
     except Exception:
-        algorithm = "HS256"
-    
-    try:
-        if algorithm == "ES256":
-            signing_key = _get_es256_signing_key(token)
+        algorithm = "unknown"
+
+    if algorithm == "ES256":
+        signing_key = _try_es256_signing_key(token)
+        if signing_key is not None:
+            try:
+                payload = jwt.decode(
+                    token,
+                    signing_key,
+                    algorithms=["ES256"],
+                    options={"verify_aud": False},
+                )
+                _logger.info("auth.token_decoded - tier=ES256")
+                return payload
+            except jwt.ExpiredSignatureError:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has expired",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            except jwt.InvalidTokenError as e:
+                errors.append(f"ES256: {e}")
+                _logger.warning(f"auth.es256_decode_failed - error={e}")
+
+    # Tier 3: Unverified decode, explicitly enabled for local development only.
+    if _allow_unverified_jwt():
+        _logger.warning(
+            "auth.unverified_decode - all_tiers_failed, using unverified decode "
+            "(explicitly enabled for dev only)"
+        )
+        try:
             payload = jwt.decode(
                 token,
-                signing_key,
-                algorithms=["ES256"],
-                options={"verify_aud": False},
+                options={"verify_signature": False, "verify_aud": False},
+                algorithms=["HS256", "ES256"],
             )
             return payload
+        except Exception as e:
+            _logger.error(f"auth.decode_failed - errors={errors}, unverified_error={e}")
 
-        secret = _get_jwt_secret()
-        payload = jwt.decode(
-            token,
-            secret,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    _logger.error(f"auth.decode_failed - errors={errors}")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=f"Invalid token: {'; '.join(errors) if errors else 'no verified decoding method succeeded'}",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def get_current_user(
@@ -125,7 +175,7 @@ def get_current_user(
     
     if not authorization:
         logger = get_logger(__name__)
-        logger.warning(f"auth.missing_header - headers: {dict(request.headers)}")
+        logger.warning("auth.missing_header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing authorization header",
