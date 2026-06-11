@@ -17,7 +17,11 @@ def override_get_current_user():
     return AuthenticatedUser(user_id="test-user-123", email="test@example.com")
 
 
-app.dependency_overrides[get_current_user] = override_get_current_user
+@pytest.fixture(autouse=True)
+def _set_auth_override():
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 class TestRoadmapStatusEndpoint:
@@ -126,14 +130,14 @@ class TestRoadmapStatusEndpoint:
     def test_endpoint_requires_auth(self) -> None:
         client = TestClient(app)
 
-        app_dependency_overrides = app.dependency_overrides.copy()
+        saved = app.dependency_overrides.copy()
         app.dependency_overrides.pop(get_current_user, None)
 
         try:
             response = client.get("/api/roadmap/test-user-123/status")
             assert response.status_code == 401
         finally:
-            app.dependency_overrides = app_dependency_overrides
+            app.dependency_overrides.update(saved)
 
     def test_endpoint_health(self) -> None:
         client = TestClient(app)

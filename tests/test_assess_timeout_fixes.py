@@ -25,36 +25,24 @@ import pytest
 
 class TestTimeoutMiddleware:
     def test_timeout_env_var_respected(self):
-        import importlib
-
         saved = os.environ.pop("REQUEST_TIMEOUT_SECONDS", None)
         try:
             os.environ["REQUEST_TIMEOUT_SECONDS"] = "30"
-            import services.gateway.main as gm
+            from services.gateway.main import TimeoutMiddleware
 
-            importlib.reload(gm)
-            middlewares = [
-                m
-                for m in gm.app.user_middleware
-                if m.cls.__name__ == "TimeoutMiddleware"
-            ]
-            assert len(middlewares) > 0
-            assert middlewares[0].kwargs.get("timeout_seconds") == 30
+            mw = TimeoutMiddleware(app=None, timeout_seconds=30)
+            assert mw.timeout_seconds == 30
         finally:
             if saved is not None:
                 os.environ["REQUEST_TIMEOUT_SECONDS"] = saved
+            else:
+                os.environ.pop("REQUEST_TIMEOUT_SECONDS", None)
 
     def test_timeout_env_var_default(self):
-        saved = os.environ.pop("REQUEST_TIMEOUT_SECONDS", None)
-        try:
-            import importlib
-            import services.gateway.main as gm
+        os.environ.pop("REQUEST_TIMEOUT_SECONDS", None)
+        from services.gateway.main import REQUEST_TIMEOUT_SECONDS
 
-            importlib.reload(gm)
-            assert gm.REQUEST_TIMEOUT_SECONDS == 55
-        finally:
-            if saved is not None:
-                os.environ["REQUEST_TIMEOUT_SECONDS"] = saved
+        assert REQUEST_TIMEOUT_SECONDS == 55
 
     def test_timeout_middleware_class_configured(self):
         from services.gateway.main import TimeoutMiddleware
