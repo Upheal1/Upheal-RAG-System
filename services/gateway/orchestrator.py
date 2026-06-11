@@ -46,6 +46,7 @@ def _get_kb():
         _kb = ChromaKnowledgeBase()
     return _kb
 
+
 ASSESSMENT_STAGE = "gateway.assess"
 
 
@@ -261,7 +262,9 @@ def _assemble_response(
     screen_time_insights = None
     if user_context.screen_time_data is not None:
         try:
-            screen_time_insights = build_screen_time_insights(user_context.screen_time_data)
+            screen_time_insights = build_screen_time_insights(
+                user_context.screen_time_data
+            )
         except Exception:
             screen_time_insights = None
 
@@ -415,15 +418,20 @@ def run_assessment_chain(
     Each stage is wrapped in error handling. If a stage fails, a safe
     fallback response is returned — never a stack trace.
     """
+    chain_t0 = time.monotonic()
     answers = answers or {}
     query_text = ""
 
     # --- Stage 1: Profiler ---
     try:
-        user_context = _run_profiler(user_id, raw_payload, screen_time_minutes, screen_time_data)
+        user_context = _run_profiler(
+            user_id, raw_payload, screen_time_minutes, screen_time_data
+        )
     except Exception as e:
         logger.error(f"{ASSESSMENT_STAGE}.profiler.error", error=str(e))
         return _safe_fallback_response(user_id, session_id, "profiler", answers)
+
+    t_query = time.monotonic()
 
     # --- Build query text (needed for architect) ---
     try:
@@ -431,6 +439,11 @@ def run_assessment_chain(
     except Exception as e:
         logger.error(f"{ASSESSMENT_STAGE}.query_build.error", error=str(e))
         return _safe_fallback_response(user_id, session_id, "query_build", answers)
+
+    logger.info(
+        f"{ASSESSMENT_STAGE}.query_build.done",
+        duration_ms=round((time.monotonic() - t_query) * 1000, 2),
+    )
 
     # --- Stage 2: Architect (retrieve → rerank → sequence → audit) ---
     try:
@@ -447,6 +460,13 @@ def run_assessment_chain(
     except Exception as e:
         logger.error(f"{ASSESSMENT_STAGE}.assemble.error", error=str(e))
         return _safe_fallback_response(user_id, session_id, "assemble", answers)
+
+    chain_elapsed = round((time.monotonic() - chain_t0) * 1000, 2)
+    logger.info(
+        f"{ASSESSMENT_STAGE}.chain.done",
+        user_id=user_id,
+        total_duration_ms=chain_elapsed,
+    )
 
     # --- Post-write to Supabase (fire-and-forget in background) ---
     try:

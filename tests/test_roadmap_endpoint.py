@@ -16,6 +16,8 @@ from __future__ import annotations
 from typing import List
 from unittest.mock import patch
 
+import pytest
+
 from services.gateway.auth_middleware import get_current_user, AuthenticatedUser
 from services.gateway.main import app
 from services.gateway.schemas import RoadmapRequest, RoadmapResponse
@@ -26,7 +28,11 @@ def override_get_current_user():
     return AuthenticatedUser(user_id="test-user-001", email="test@example.com")
 
 
-app.dependency_overrides[get_current_user] = override_get_current_user
+@pytest.fixture(autouse=True)
+def _set_auth_override():
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 # ---------------------------------------------------------------------------
