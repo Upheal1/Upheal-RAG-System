@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import math
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -11,6 +12,7 @@ try:
     # Prefer FastAPI's exception type when available (gateway runtime).
     from fastapi import HTTPException  # type: ignore
 except ModuleNotFoundError:  # pragma: no cover
+
     class HTTPException(Exception):
         """
         Lightweight fallback for environments where FastAPI isn't installed.
@@ -24,6 +26,7 @@ except ModuleNotFoundError:  # pragma: no cover
             self.status_code = int(status_code)
             self.detail = detail
 
+
 from services.shared.schemas import ScreenTimeData, UserContext
 
 
@@ -33,6 +36,29 @@ MAX_POINTS_BY_TAG: Dict[str, int] = {
 }
 
 _BAYES_MODULE: Any = None  # None = not loaded, False = unavailable, else module
+_request_cache = threading.local()
+
+
+def _get_cached_assessment(answers: Dict[str, int]) -> Optional[Dict[str, Any]]:
+    """Return the bayesian assessment result, cached per thread (one per request)."""
+    if not answers:
+        return None
+    if not hasattr(_request_cache, "bayesian"):
+        _request_cache.bayesian = {}
+    key = tuple(sorted(answers.items()))
+    if key not in _request_cache.bayesian:
+        mod = _load_assessment_engine()
+        if not mod:
+            _request_cache.bayesian[key] = None
+        else:
+            _request_cache.bayesian[key] = mod.run_assessment(answers)
+    return _request_cache.bayesian[key]
+
+
+def _clear_assessment_cache() -> None:
+    """Clear the per-thread assessment cache (exposed for testing)."""
+    if hasattr(_request_cache, "bayesian"):
+        _request_cache.bayesian.clear()
 
 
 def _clamp_int(x: int, lo: int, hi: int) -> int:
@@ -61,7 +87,9 @@ def _load_assessment_engine():
     return mod
 
 
-def sigmoid_r_app(screen_time_minutes: float, *, threshold_minutes: float = 60.0) -> float:
+def sigmoid_r_app(
+    screen_time_minutes: float, *, threshold_minutes: float = 60.0
+) -> float:
     """
     R_app = 1 / (1 + e^{-0.05 * (minutes - 60)})
     """
@@ -99,17 +127,23 @@ def parse_screen_time_data(data: ScreenTimeData) -> dict:
     app_breakdown = []
     for app in data.dailyUsage:
         pct = (app.usageTime / total) * 100 if total > 0 else 0
-        app_breakdown.append({
-            "packageName": app.packageName,
-            "percentage": round(pct, 1),
-            "category": app.category.lower(),
-        })
+        app_breakdown.append(
+            {
+                "packageName": app.packageName,
+                "percentage": round(pct, 1),
+                "category": app.category.lower(),
+            }
+        )
 
     # Sort by percentage descending
     app_breakdown.sort(key=lambda x: x["percentage"], reverse=True)
 
     top_social = sorted(
-        [app.packageName for app in data.dailyUsage if app.category.lower() == "social"],
+        [
+            app.packageName
+            for app in data.dailyUsage
+            if app.category.lower() == "social"
+        ],
         key=lambda name: next(
             (a.usageTime for a in data.dailyUsage if a.packageName == name), 0
         ),
@@ -117,7 +151,11 @@ def parse_screen_time_data(data: ScreenTimeData) -> dict:
     )[:5]
 
     top_productivity = sorted(
-        [app.packageName for app in data.dailyUsage if app.category.lower() == "productivity"],
+        [
+            app.packageName
+            for app in data.dailyUsage
+            if app.category.lower() == "productivity"
+        ],
         key=lambda name: next(
             (a.usageTime for a in data.dailyUsage if a.packageName == name), 0
         ),
@@ -149,9 +187,7 @@ def build_screen_time_insights(data: ScreenTimeData) -> dict:
     parsed = parse_screen_time_data(data)
     from services.shared.schemas import AppPercentage, ScreenTimeInsights
 
-    app_breakdown = [
-        AppPercentage(**app) for app in parsed.get("app_breakdown", [])
-    ]
+    app_breakdown = [AppPercentage(**app) for app in parsed.get("app_breakdown", [])]
 
     return ScreenTimeInsights(
         totalMinutes=parsed["total_minutes"],
@@ -311,7 +347,10 @@ def infer_answers_dict(raw_forms_json: Any) -> Optional[Dict[str, int]]:
                 out[str(k)] = iv
             return out
         keys = list(raw_forms_json.keys())
-        if any(isinstance(k, str) and ("gad" in k.lower() or "phq" in k.lower()) for k in keys):
+        if any(
+            isinstance(k, str) and ("gad" in k.lower() or "phq" in k.lower())
+            for k in keys
+        ):
             out2: Dict[str, int] = {}
             for k, v in raw_forms_json.items():
                 iv = _coerce_item_score(v)
@@ -349,19 +388,24 @@ def _merge_scale_and_bayesian(answers: Dict[str, int]) -> Dict[str, int]:
     Blend scale-based 0..100 scores with Bayesian path probabilities (0..1 → 0..100).
     """
     scale = _normalize_form_scores(answers)
-    mod = _load_assessment_engine()
-    if not mod or not answers:
+    if not answers:
         return scale
 
-    br = mod.run_assessment(answers)
+    br = _get_cached_assessment(answers)
+    if br is None:
+        return scale
     bayes_anx = _clamp_int(int(round(float(br["anxiety_probability"]) * 100.0)), 0, 100)
-    bayes_dep = _clamp_int(int(round(float(br["depression_probability"]) * 100.0)), 0, 100)
+    bayes_dep = _clamp_int(
+        int(round(float(br["depression_probability"]) * 100.0)), 0, 100
+    )
 
     merged: Dict[str, int] = {}
     for tag, bscore in (("anxiety", bayes_anx), ("depression", bayes_dep)):
         s = scale.get(tag)
         if s is not None:
-            merged[tag] = _clamp_int(int(round(0.55 * float(s) + 0.45 * float(bscore))), 0, 100)
+            merged[tag] = _clamp_int(
+                int(round(0.55 * float(s) + 0.45 * float(bscore))), 0, 100
+            )
         elif bscore >= 5:
             merged[tag] = bscore
 
@@ -381,15 +425,17 @@ def _extract_suicidal_flag(raw_forms_json: Any) -> bool:
     return False
 
 
-def build_retrieval_query_text(user_context: UserContext, answers: Dict[str, int]) -> str:
+def build_retrieval_query_text(
+    user_context: UserContext, answers: Dict[str, int]
+) -> str:
     """
     Natural-language query for embedding search: prefer Bayesian `generate_rag_query`
     output when we have item-level answers; otherwise derive from form_scores severities.
     """
-    mod = _load_assessment_engine()
-    if mod and answers:
+    br = _get_cached_assessment(answers)
+    if br is not None:
         try:
-            return str(mod.run_assessment(answers)["query"])
+            return str(br["query"])
         except Exception:
             pass
 
