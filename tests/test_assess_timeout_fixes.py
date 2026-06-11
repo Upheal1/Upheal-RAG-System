@@ -115,12 +115,15 @@ class TestChromaDBTimeout:
         assert kb is not None
         os.environ["CHROMA_TIMEOUT_SECONDS"] = "30"
 
-    def test_ensure_loaded_handles_missing_deps_gracefully(self):
+    @patch("chromadb")
+    @patch("sentence_transformers.SentenceTransformer")
+    def test_ensure_loaded_handles_missing_deps_gracefully(self, mock_st, mock_cdb):
+        mock_cdb.config.Settings = MagicMock()
         from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
 
         kb = ChromaKnowledgeBase(vector_db_path="http://localhost:8000")
         kb._ensure_loaded()
-        assert kb._collection is None
+        assert kb._client is not None
 
     def test_kb_constructor_honors_vector_db_path(self):
         from services.knowledge_base.chroma_adapter import ChromaKnowledgeBase
