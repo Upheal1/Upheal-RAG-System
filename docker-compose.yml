@@ -1,0 +1,11 @@
+services:
+  upheal-backend:
+    build: .
+    container_name: upheal-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

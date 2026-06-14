@@ -53,3 +53,18 @@ my_app/.packages
 my_app/pubspec.lock
 
 node_modules
+
+# Local and production secrets
+.env
+.env.*
+!.env.example
+
+# Python generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local backups
+*.before-*
+backups/
