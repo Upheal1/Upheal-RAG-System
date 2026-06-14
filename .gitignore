@@ -68,3 +68,5 @@ __pycache__/
 # Local backups
 *.before-*
 backups/
+
+!.env.ai-coach.example
